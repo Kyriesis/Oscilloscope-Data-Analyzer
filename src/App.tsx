@@ -37,14 +37,17 @@ function pointToSegmentDistance(
   return Math.hypot(px - closestX, py - closestY);
 }
 
-const PLOT_MARGIN = { top: 44, right: 24, bottom: 52, left: 90 };
+const BASE_MARGIN = { top: 44, right: 24, bottom: 52, left: 90 };
 
-function getPlotDimensions(wrapper: HTMLDivElement | null) {
+function getPlotDimensions(
+  wrapper: HTMLDivElement | null,
+  margin: { top: number; right: number; bottom: number; left: number }
+) {
   if (!wrapper) return null;
   const rect = wrapper.getBoundingClientRect();
   return {
-    plotWidth: Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right),
-    plotHeight: Math.max(1, rect.height - PLOT_MARGIN.top - PLOT_MARGIN.bottom),
+    plotWidth: Math.max(1, rect.width - margin.left - margin.right),
+    plotHeight: Math.max(1, rect.height - margin.top - margin.bottom),
   };
 }
 
@@ -154,6 +157,11 @@ function App() {
   const [currentFilename, setCurrentFilename] = useState<string | null>(null);
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+
+  const plotMargin = useMemo(
+    () => ({ ...BASE_MARGIN, right: zoomXMode ? 90 : 24 }),
+    [zoomXMode]
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -366,7 +374,7 @@ function App() {
     event.stopPropagation();
     if (!zoomXMode || !data) return;
 
-    const dims = getPlotDimensions(viewRef.current);
+    const dims = getPlotDimensions(viewRef.current, plotMargin);
     if (!dims) return;
     const { plotWidth } = dims;
 
@@ -381,7 +389,7 @@ function App() {
     const rect = viewRef.current?.getBoundingClientRect();
     if (rect) {
       const mouseXInCanvas = event.clientX - rect.left;
-      const plotMouseX = clamp(mouseXInCanvas - PLOT_MARGIN.left, 0, plotWidth);
+      const plotMouseX = clamp(mouseXInCanvas - plotMargin.left, 0, plotWidth);
       const scaleXOld = (plotWidth / xSpan) * zoomX;
       const dataMouseX = minX + (plotMouseX - panX) / scaleXOld;
       const scaleXNew = (plotWidth / xSpan) * nextZoomX;
@@ -407,8 +415,8 @@ function App() {
   const findHoveredChannel = (clientX: number, clientY: number, threshold = 30): string | null => {
     if (!viewRef.current || !data || visibleChannels.length === 0) return null;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotWidth = Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right);
-    const plotHeight = Math.max(1, rect.height - PLOT_MARGIN.top - PLOT_MARGIN.bottom);
+    const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
+    const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
     const { minX, maxX } = getTimeRange(data, channels);
     const xSpan = maxX - minX || 1;
     const scaleX = (plotWidth / xSpan) * zoomX;
@@ -416,7 +424,7 @@ function App() {
     const screenX = clientX - rect.left;
     const screenY = clientY - rect.top;
 
-    if (screenX < PLOT_MARGIN.left || screenX > PLOT_MARGIN.left + plotWidth) return null;
+    if (screenX < plotMargin.left || screenX > plotMargin.left + plotWidth) return null;
 
     let closestId: string | null = null;
     let minDist = Number.POSITIVE_INFINITY;
@@ -426,7 +434,7 @@ function App() {
       if (!ch.visible) return;
 
       const bandHeight = plotHeight / totalChannels;
-      const bandTop = PLOT_MARGIN.top + bandHeight * index;
+      const bandTop = plotMargin.top + bandHeight * index;
       const bandCenterY = bandTop + bandHeight * 0.5;
       const ySpan = ch.maxY - ch.minY || 1;
       const yScale = ((bandHeight * 0.75) / ySpan) * ch.yZoom;
@@ -436,8 +444,8 @@ function App() {
       for (let i = 0; i < ch.points.length - 1; i += 1) {
         const p0 = ch.points[i];
         const p1 = ch.points[i + 1];
-        const x0 = PLOT_MARGIN.left + (p0.x - minX) * scaleX + panX;
-        const x1 = PLOT_MARGIN.left + (p1.x - minX) * scaleX + panX;
+        const x0 = plotMargin.left + (p0.x - minX) * scaleX + panX;
+        const x1 = plotMargin.left + (p1.x - minX) * scaleX + panX;
         // 简单剔除远离鼠标的水平区域，减少无效计算
         if (Math.max(x0, x1) < screenX - threshold || Math.min(x0, x1) > screenX + threshold) {
           continue;
@@ -460,19 +468,19 @@ function App() {
   const getDataXFromMouse = (clientX: number): number | null => {
     if (!viewRef.current || !data) return null;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotWidth = Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right);
+    const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
     const { minX, maxX } = getTimeRange(data, channels);
     const xSpan = maxX - minX || 1;
     const scaleX = (plotWidth / xSpan) * zoomX;
     const screenX = clientX - rect.left;
-    const plotMouseX = screenX - PLOT_MARGIN.left;
+    const plotMouseX = screenX - plotMargin.left;
     return clamp(minX + (plotMouseX - panX) / scaleX, minX, maxX);
   };
 
   const findHoveredCursor = (clientX: number): 'A' | 'B' | null => {
     if (!viewRef.current || !data || !cursorMode) return null;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotWidth = Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right);
+    const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
     const { minX, maxX } = getTimeRange(data, channels);
     const xSpan = maxX - minX || 1;
     const scaleX = (plotWidth / xSpan) * zoomX;
@@ -480,7 +488,7 @@ function App() {
 
     const getDist = (cursorX: number | null) => {
       if (cursorX === null) return Number.POSITIVE_INFINITY;
-      const cursorScreenX = PLOT_MARGIN.left + (cursorX - minX) * scaleX + panX;
+      const cursorScreenX = plotMargin.left + (cursorX - minX) * scaleX + panX;
       return Math.abs(screenX - cursorScreenX);
     };
 
@@ -502,15 +510,15 @@ function App() {
   const findHoveredMeasureLabel = (clientX: number, clientY: number): boolean => {
     if (!viewRef.current || !data || !cursorMode || cursorA === null || cursorB === null) return false;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotWidth = Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right);
-    const plotHeight = Math.max(1, rect.height - PLOT_MARGIN.top - PLOT_MARGIN.bottom);
+    const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
+    const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
     const { minX, maxX } = getTimeRange(data, channels);
     const xSpan = maxX - minX || 1;
     const scaleX = (plotWidth / xSpan) * zoomX;
-    const screenXA = PLOT_MARGIN.left + (cursorA - minX) * scaleX + panX;
-    const screenXB = PLOT_MARGIN.left + (cursorB - minX) * scaleX + panX;
+    const screenXA = plotMargin.left + (cursorA - minX) * scaleX + panX;
+    const screenXB = plotMargin.left + (cursorB - minX) * scaleX + panX;
     const labelX = (screenXA + screenXB) / 2;
-    const labelY = PLOT_MARGIN.top + measureLabelY * plotHeight;
+    const labelY = plotMargin.top + measureLabelY * plotHeight;
     const screenX = clientX - rect.left;
     const screenY = clientY - rect.top;
 
@@ -540,12 +548,12 @@ function App() {
   const getActiveChannelYFromScreenY = (screenY: number): number | null => {
     if (!viewRef.current || !data || !activeChannel) return null;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotHeight = Math.max(1, rect.height - PLOT_MARGIN.top - PLOT_MARGIN.bottom);
+    const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
     const totalChannels = channels.length;
     const index = channels.findIndex((ch) => ch.id === activeChannel.id);
     if (index === -1) return null;
     const bandHeight = plotHeight / totalChannels;
-    const bandTop = PLOT_MARGIN.top + bandHeight * index;
+    const bandTop = plotMargin.top + bandHeight * index;
     const bandCenterY = bandTop + bandHeight * 0.5;
     const ySpan = activeChannel.maxY - activeChannel.minY || 1;
     const yScale = ((bandHeight * 0.75) / ySpan) * activeChannel.yZoom;
@@ -556,8 +564,8 @@ function App() {
   const getActiveChannelScreenYFromRatio = (ratio: number | null): number | null => {
     if (ratio === null || !viewRef.current || !data || !activeChannel) return null;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotHeight = Math.max(1, rect.height - PLOT_MARGIN.top - PLOT_MARGIN.bottom);
-    return PLOT_MARGIN.top + ratio * plotHeight;
+    const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
+    return plotMargin.top + ratio * plotHeight;
   };
 
   const getActiveChannelYFromRatio = (ratio: number | null): number | null => {
@@ -569,17 +577,17 @@ function App() {
   const getMouseRatioY = (clientY: number): number | null => {
     if (!viewRef.current) return null;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotHeight = Math.max(1, rect.height - PLOT_MARGIN.top - PLOT_MARGIN.bottom);
-    return clamp((clientY - rect.top - PLOT_MARGIN.top) / plotHeight, 0, 1);
+    const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
+    return clamp((clientY - rect.top - plotMargin.top) / plotHeight, 0, 1);
   };
 
   const findHoveredHorizontalCursor = (clientX: number, clientY: number): 'C' | 'D' | null => {
     if (!viewRef.current || !data || !horizontalCursorMode || !activeChannel) return null;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotWidth = Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right);
+    const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
     const screenX = clientX - rect.left;
     const screenY = clientY - rect.top;
-    if (screenX < PLOT_MARGIN.left || screenX > PLOT_MARGIN.left + plotWidth) return null;
+    if (screenX < plotMargin.left || screenX > plotMargin.left + plotWidth) return null;
 
     const getDist = (cursorRatio: number | null) => {
       if (cursorRatio === null) return Number.POSITIVE_INFINITY;
@@ -599,11 +607,11 @@ function App() {
   const findHoveredHorizontalMeasureLabel = (clientX: number, clientY: number): boolean => {
     if (!viewRef.current || !data || !horizontalCursorMode || !activeChannel || cursorC === null || cursorD === null) return false;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotWidth = Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right);
+    const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
     const screenYC = getActiveChannelScreenYFromRatio(cursorC);
     const screenYD = getActiveChannelScreenYFromRatio(cursorD);
     if (screenYC === null || screenYD === null) return false;
-    const labelX = PLOT_MARGIN.left + horizontalMeasureLabelX * plotWidth;
+    const labelX = plotMargin.left + horizontalMeasureLabelX * plotWidth;
     const labelY = (screenYC + screenYD) / 2;
     const screenX = clientX - rect.left;
     const screenY = clientY - rect.top;
@@ -627,8 +635,8 @@ function App() {
   const findHoveredCrossCursor = (clientX: number, clientY: number): 'E' | 'F' | 'G' | 'H' | 'EF' | 'GH' | null => {
     if (!viewRef.current || !data || !crossCursorMode || !activeChannel) return null;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotWidth = Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right);
-    const plotHeight = Math.max(1, rect.height - PLOT_MARGIN.top - PLOT_MARGIN.bottom);
+    const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
+    const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
     const screenX = clientX - rect.left;
     const screenY = clientY - rect.top;
     const { minX, maxX } = getTimeRange(data, channels);
@@ -636,8 +644,8 @@ function App() {
     const scaleX = (plotWidth / xSpan) * zoomX;
     const threshold = 8;
 
-    const sxE = cursorE !== null ? PLOT_MARGIN.left + (cursorE - minX) * scaleX + panX : null;
-    const syF = cursorF !== null ? PLOT_MARGIN.top + cursorF * plotHeight : null;
+    const sxE = cursorE !== null ? plotMargin.left + (cursorE - minX) * scaleX + panX : null;
+    const syF = cursorF !== null ? plotMargin.top + cursorF * plotHeight : null;
     if (
       sxE !== null &&
       syF !== null &&
@@ -647,8 +655,8 @@ function App() {
       return 'EF';
     }
 
-    const sxG = cursorG !== null ? PLOT_MARGIN.left + (cursorG - minX) * scaleX + panX : null;
-    const syH = cursorH !== null ? PLOT_MARGIN.top + cursorH * plotHeight : null;
+    const sxG = cursorG !== null ? plotMargin.left + (cursorG - minX) * scaleX + panX : null;
+    const syH = cursorH !== null ? plotMargin.top + cursorH * plotHeight : null;
     if (
       sxG !== null &&
       syH !== null &&
@@ -667,8 +675,8 @@ function App() {
 
     for (const { id, x } of verticals) {
       if (x === null) continue;
-      const sx = PLOT_MARGIN.left + (x - minX) * scaleX + panX;
-      if (screenY < PLOT_MARGIN.top || screenY > PLOT_MARGIN.top + plotHeight) continue;
+      const sx = plotMargin.left + (x - minX) * scaleX + panX;
+      if (screenY < plotMargin.top || screenY > plotMargin.top + plotHeight) continue;
       const dist = Math.abs(screenX - sx);
       if (dist < bestDist && dist < threshold) {
         bestDist = dist;
@@ -682,8 +690,8 @@ function App() {
     ];
     for (const { id, ratio } of horizontals) {
       if (ratio === null) continue;
-      const sy = PLOT_MARGIN.top + ratio * plotHeight;
-      if (screenX < PLOT_MARGIN.left || screenX > PLOT_MARGIN.left + plotWidth) continue;
+      const sy = plotMargin.top + ratio * plotHeight;
+      if (screenX < plotMargin.left || screenX > plotMargin.left + plotWidth) continue;
       const dist = Math.abs(screenY - sy);
       if (dist < bestDist && dist < threshold) {
         bestDist = dist;
@@ -697,15 +705,15 @@ function App() {
   const findHoveredCrossMeasureLabelX = (clientX: number, clientY: number): boolean => {
     if (!viewRef.current || !data || !crossCursorMode || cursorE === null || cursorG === null) return false;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotWidth = Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right);
-    const plotHeight = Math.max(1, rect.height - PLOT_MARGIN.top - PLOT_MARGIN.bottom);
+    const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
+    const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
     const { minX, maxX } = getTimeRange(data, channels);
     const xSpan = maxX - minX || 1;
     const scaleX = (plotWidth / xSpan) * zoomX;
-    const screenXE = PLOT_MARGIN.left + (cursorE - minX) * scaleX + panX;
-    const screenXG = PLOT_MARGIN.left + (cursorG - minX) * scaleX + panX;
+    const screenXE = plotMargin.left + (cursorE - minX) * scaleX + panX;
+    const screenXG = plotMargin.left + (cursorG - minX) * scaleX + panX;
     const labelX = (screenXE + screenXG) / 2;
-    const labelY = PLOT_MARGIN.top + crossMeasureLabelY * plotHeight;
+    const labelY = plotMargin.top + crossMeasureLabelY * plotHeight;
     const screenX = clientX - rect.left;
     const screenY = clientY - rect.top;
 
@@ -727,11 +735,11 @@ function App() {
   const findHoveredCrossMeasureLabelY = (clientX: number, clientY: number): boolean => {
     if (!viewRef.current || !data || !crossCursorMode || !activeChannel || cursorF === null || cursorH === null) return false;
     const rect = viewRef.current.getBoundingClientRect();
-    const plotWidth = Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right);
+    const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
     const screenYF = getActiveChannelScreenYFromRatio(cursorF);
     const screenYH = getActiveChannelScreenYFromRatio(cursorH);
     if (screenYF === null || screenYH === null) return false;
-    const labelX = PLOT_MARGIN.left + crossMeasureLabelX * plotWidth;
+    const labelX = plotMargin.left + crossMeasureLabelX * plotWidth;
     const labelY = (screenYF + screenYH) / 2;
     const screenX = clientX - rect.left;
     const screenY = clientY - rect.top;
@@ -843,9 +851,9 @@ function App() {
     if (draggingMeasureLabel) {
       const rect = viewRef.current?.getBoundingClientRect();
       if (rect) {
-        const plotHeight = Math.max(1, rect.height - PLOT_MARGIN.top - PLOT_MARGIN.bottom);
+        const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
         const screenY = event.clientY - rect.top;
-        const nextY = clamp((screenY - PLOT_MARGIN.top) / plotHeight, 0, 1);
+        const nextY = clamp((screenY - plotMargin.top) / plotHeight, 0, 1);
         setMeasureLabelY(nextY);
       }
       return;
@@ -863,9 +871,9 @@ function App() {
     if (draggingHorizontalMeasureLabel) {
       const rect = viewRef.current?.getBoundingClientRect();
       if (rect) {
-        const plotWidth = Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right);
+        const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
         const screenX = event.clientX - rect.left;
-        const nextX = clamp((screenX - PLOT_MARGIN.left) / plotWidth, 0, 1);
+        const nextX = clamp((screenX - plotMargin.left) / plotWidth, 0, 1);
         setHorizontalMeasureLabelX(nextX);
       }
       return;
@@ -883,9 +891,9 @@ function App() {
     if (draggingCrossMeasureLabelX) {
       const rect = viewRef.current?.getBoundingClientRect();
       if (rect) {
-        const plotHeight = Math.max(1, rect.height - PLOT_MARGIN.top - PLOT_MARGIN.bottom);
+        const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
         const screenY = event.clientY - rect.top;
-        const nextY = clamp((screenY - PLOT_MARGIN.top) / plotHeight, 0, 1);
+        const nextY = clamp((screenY - plotMargin.top) / plotHeight, 0, 1);
         setCrossMeasureLabelY(nextY);
       }
       return;
@@ -894,9 +902,9 @@ function App() {
     if (draggingCrossMeasureLabelY) {
       const rect = viewRef.current?.getBoundingClientRect();
       if (rect) {
-        const plotWidth = Math.max(1, rect.width - PLOT_MARGIN.left - PLOT_MARGIN.right);
+        const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
         const screenX = event.clientX - rect.left;
-        const nextX = clamp((screenX - PLOT_MARGIN.left) / plotWidth, 0, 1);
+        const nextX = clamp((screenX - plotMargin.left) / plotWidth, 0, 1);
         setCrossMeasureLabelX(nextX);
       }
       return;
@@ -932,7 +940,7 @@ function App() {
     if (draggingChannelId && channelDragStartRef.current) {
       const dy = event.clientY - channelDragStartRef.current.y;
       channelDragStartRef.current.y = event.clientY;
-      const dims = getPlotDimensions(viewRef.current);
+      const dims = getPlotDimensions(viewRef.current, plotMargin);
       if (dims) {
         setChannels((prev) => {
           const idx = prev.findIndex((c) => c.id === draggingChannelId);
@@ -942,7 +950,7 @@ function App() {
             idx,
             prev.length,
             dims.plotHeight,
-            PLOT_MARGIN
+            plotMargin
           );
           return prev.map((ch) =>
             ch.id === draggingChannelId
@@ -957,7 +965,7 @@ function App() {
     if (dragging && dragStartRef.current) {
       const dx = event.clientX - dragStartRef.current.x;
       dragStartRef.current = { x: event.clientX, y: event.clientY };
-      const dims = getPlotDimensions(viewRef.current);
+      const dims = getPlotDimensions(viewRef.current, plotMargin);
       if (dims) {
         setPanX((prev) => clampPanX(prev + dx, zoomX, dims.plotWidth));
       }
@@ -1394,7 +1402,7 @@ function App() {
 
   // 窗口大小变化或状态变化时重新限制水平平移
   useEffect(() => {
-    const dims = getPlotDimensions(viewRef.current);
+    const dims = getPlotDimensions(viewRef.current, plotMargin);
     if (!dims) return;
     const nextPanX = clampPanX(panX, zoomX, dims.plotWidth);
     if (nextPanX !== panX) setPanX(nextPanX);
@@ -1422,8 +1430,8 @@ function App() {
 
     const width = rect.width;
     const height = rect.height;
-    const plotWidth = Math.max(1, width - PLOT_MARGIN.left - PLOT_MARGIN.right);
-    const plotHeight = Math.max(1, height - PLOT_MARGIN.top - PLOT_MARGIN.bottom);
+    const plotWidth = Math.max(1, width - plotMargin.left - plotMargin.right);
+    const plotHeight = Math.max(1, height - plotMargin.top - plotMargin.bottom);
 
     // 背景
     ctx.fillStyle = '#050505';
@@ -1447,26 +1455,26 @@ function App() {
     const xSpan = maxX - minX || 1;
     const scaleX = (plotWidth / xSpan) * zoomX;
 
-    drawGrid(ctx, PLOT_MARGIN, plotWidth, plotHeight);
-    drawAxes(ctx, PLOT_MARGIN, plotWidth, plotHeight, minX, maxX, scaleX, panX);
+    drawGrid(ctx, plotMargin, plotWidth, plotHeight);
+    drawAxes(ctx, plotMargin, plotWidth, plotHeight, minX, maxX, scaleX, panX);
 
     // 使用裁剪限制波形和光标只绘制在图形框内部
     ctx.save();
     ctx.beginPath();
-    ctx.rect(PLOT_MARGIN.left, PLOT_MARGIN.top, plotWidth, plotHeight);
+    ctx.rect(plotMargin.left, plotMargin.top, plotWidth, plotHeight);
     ctx.clip();
 
     channels.forEach((ch, index) => {
       if (ch.visible) {
-        drawChannelWaveform(ctx, ch, index, totalChannels, PLOT_MARGIN, plotWidth, plotHeight, scaleX, panX, minX, activeChannelId, horizontalCursorMode, crossCursorMode);
+        drawChannelWaveform(ctx, ch, index, totalChannels, plotMargin, plotWidth, plotHeight, scaleX, panX, minX, activeChannelId, horizontalCursorMode, crossCursorMode);
       }
     });
 
     // 纵向光标模式下绘制 A/B 虚线与测量虚线
     if (cursorMode) {
-      drawCursorLine(ctx, cursorA, '#ffffff', PLOT_MARGIN, plotHeight, minX, scaleX, panX);
-      drawCursorLine(ctx, cursorB, '#ffffff', PLOT_MARGIN, plotHeight, minX, scaleX, panX);
-      drawMeasureLine(ctx, cursorA, cursorB, measureLabelY, PLOT_MARGIN, plotWidth, plotHeight, minX, scaleX, panX);
+      drawCursorLine(ctx, cursorA, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
+      drawCursorLine(ctx, cursorB, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
+      drawMeasureLine(ctx, cursorA, cursorB, measureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
     }
 
     // 横向光标模式下绘制 C/D 虚线与测量虚线
@@ -1475,9 +1483,9 @@ function App() {
     const dataYC = horizontalCursorMode ? getActiveChannelYFromRatio(cursorC) : null;
     const dataYD = horizontalCursorMode ? getActiveChannelYFromRatio(cursorD) : null;
     if (horizontalCursorMode) {
-      drawHorizontalCursorLine(ctx, cursorC, '#ffffff', PLOT_MARGIN, plotWidth, plotHeight, screenYC);
-      drawHorizontalCursorLine(ctx, cursorD, '#ffffff', PLOT_MARGIN, plotWidth, plotHeight, screenYD);
-      drawHorizontalMeasureAnnotation(ctx, dataYC, dataYD, horizontalMeasureLabelX, activeChannel, PLOT_MARGIN, plotWidth, plotHeight, screenYC, screenYD);
+      drawHorizontalCursorLine(ctx, cursorC, '#ffffff', plotMargin, plotWidth, plotHeight, screenYC);
+      drawHorizontalCursorLine(ctx, cursorD, '#ffffff', plotMargin, plotWidth, plotHeight, screenYD);
+      drawHorizontalMeasureAnnotation(ctx, dataYC, dataYD, horizontalMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYC, screenYD);
     }
 
     // 纵横光标模式下绘制 EF/GH 十字虚线与 ΔX/ΔY 测量虚线
@@ -1486,44 +1494,44 @@ function App() {
     const dataYF = crossCursorMode ? getActiveChannelYFromRatio(cursorF) : null;
     const dataYH = crossCursorMode ? getActiveChannelYFromRatio(cursorH) : null;
     if (crossCursorMode) {
-      drawCursorLine(ctx, cursorE, '#ff8a64', PLOT_MARGIN, plotHeight, minX, scaleX, panX);
-      drawCursorLine(ctx, cursorG, '#64d0ff', PLOT_MARGIN, plotHeight, minX, scaleX, panX);
-      drawHorizontalCursorLine(ctx, cursorF, '#ff8a64', PLOT_MARGIN, plotWidth, plotHeight, screenYF);
-      drawHorizontalCursorLine(ctx, cursorH, '#64d0ff', PLOT_MARGIN, plotWidth, plotHeight, screenYH);
-      drawMeasureLine(ctx, cursorE, cursorG, crossMeasureLabelY, PLOT_MARGIN, plotWidth, plotHeight, minX, scaleX, panX);
-      drawCrossMeasureXLabel(ctx, cursorE, cursorG, crossMeasureLabelY, PLOT_MARGIN, plotWidth, plotHeight, minX, scaleX, panX);
-      drawHorizontalMeasureAnnotation(ctx, dataYF, dataYH, crossMeasureLabelX, activeChannel, PLOT_MARGIN, plotWidth, plotHeight, screenYF, screenYH);
+      drawCursorLine(ctx, cursorE, '#ff8a64', plotMargin, plotHeight, minX, scaleX, panX);
+      drawCursorLine(ctx, cursorG, '#64d0ff', plotMargin, plotHeight, minX, scaleX, panX);
+      drawHorizontalCursorLine(ctx, cursorF, '#ff8a64', plotMargin, plotWidth, plotHeight, screenYF);
+      drawHorizontalCursorLine(ctx, cursorH, '#64d0ff', plotMargin, plotWidth, plotHeight, screenYH);
+      drawMeasureLine(ctx, cursorE, cursorG, crossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
+      drawCrossMeasureXLabel(ctx, cursorE, cursorG, crossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
+      drawHorizontalMeasureAnnotation(ctx, dataYF, dataYH, crossMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYF, screenYH);
     }
 
     ctx.restore();
 
     // 标签绘制在裁剪区域外，确保始终可读；隐藏通道标签变淡
       channels.forEach((ch, index) => {
-      drawChannelLabels(ctx, ch, index, totalChannels, PLOT_MARGIN, plotHeight, labelChannelId);
+      drawChannelLabels(ctx, ch, index, totalChannels, plotMargin, plotHeight, labelChannelId, zoomXMode, plotWidth);
     });
 
     // 纵向光标模式下绘制 A/B 标签与测量值文本
     if (cursorMode) {
-      drawCursorLabel(ctx, cursorA, '#ff8a64', 'A', PLOT_MARGIN, plotWidth, minX, scaleX, panX);
-      drawCursorLabel(ctx, cursorB, '#64d0ff', 'B', PLOT_MARGIN, plotWidth, minX, scaleX, panX);
-      drawMeasureLabel(ctx, cursorA, cursorB, measureLabelY, PLOT_MARGIN, plotWidth, plotHeight, minX, scaleX, panX);
+      drawCursorLabel(ctx, cursorA, '#ff8a64', 'A', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, cursorB, '#64d0ff', 'B', plotMargin, plotWidth, minX, scaleX, panX);
+      drawMeasureLabel(ctx, cursorA, cursorB, measureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
     }
 
     // 横向光标模式下绘制 C/D 标签
     if (horizontalCursorMode) {
-      drawHorizontalCursorLabel(ctx, cursorC, '#ff8a64', 'C', PLOT_MARGIN, plotWidth, plotHeight, screenYC);
-      drawHorizontalCursorLabel(ctx, cursorD, '#64d0ff', 'D', PLOT_MARGIN, plotWidth, plotHeight, screenYD);
+      drawHorizontalCursorLabel(ctx, cursorC, '#ff8a64', 'C', plotMargin, plotWidth, plotHeight, screenYC);
+      drawHorizontalCursorLabel(ctx, cursorD, '#64d0ff', 'D', plotMargin, plotWidth, plotHeight, screenYD);
     }
 
     // 纵横光标模式下绘制 EF/GH 标签
     if (crossCursorMode) {
-      drawCursorLabel(ctx, cursorE, '#ff8a64', 'E', PLOT_MARGIN, plotWidth, minX, scaleX, panX);
-      drawCursorLabel(ctx, cursorG, '#64d0ff', 'G', PLOT_MARGIN, plotWidth, minX, scaleX, panX);
-      drawHorizontalCursorLabel(ctx, cursorF, '#ff8a64', 'F', PLOT_MARGIN, plotWidth, plotHeight, screenYF);
-      drawHorizontalCursorLabel(ctx, cursorH, '#64d0ff', 'H', PLOT_MARGIN, plotWidth, plotHeight, screenYH);
+      drawCursorLabel(ctx, cursorE, '#ff8a64', 'E', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, cursorG, '#64d0ff', 'G', plotMargin, plotWidth, minX, scaleX, panX);
+      drawHorizontalCursorLabel(ctx, cursorF, '#ff8a64', 'F', plotMargin, plotWidth, plotHeight, screenYF);
+      drawHorizontalCursorLabel(ctx, cursorH, '#64d0ff', 'H', plotMargin, plotWidth, plotHeight, screenYH);
     }
 
-    drawOverlay(ctx, data, visibleChannels, width, PLOT_MARGIN, plotWidth, minX, maxX, zoomX);
+    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX);
   }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, hoveredChannelId, draggingChannelId, selectedChannelId, cursorMode, cursorA, cursorB, hoveredCursor, draggingCursor, measureLabelY, draggingMeasureLabel, hoveredMeasureLabel, horizontalCursorMode, cursorC, cursorD, hoveredHorizontalCursor, draggingHorizontalCursor, horizontalMeasureLabelX, draggingHorizontalMeasureLabel, hoveredHorizontalMeasureLabel, crossCursorMode, cursorE, cursorF, cursorG, cursorH, hoveredCrossCursor, draggingCrossCursor, crossMeasureLabelY, crossMeasureLabelX, draggingCrossMeasureLabelX, draggingCrossMeasureLabelY, hoveredCrossMeasureLabelX, hoveredCrossMeasureLabelY, activeChannel]);
 
   // 计算每个通道在光标处的值
@@ -2165,7 +2173,9 @@ function drawChannelLabels(
   total: number,
   margin: { top: number; right: number; bottom: number; left: number },
   plotHeight: number,
-  selectedChannelId: string | null
+  selectedChannelId: string | null,
+  zoomXMode: boolean,
+  plotWidth: number
 ) {
   const bandHeight = plotHeight / total;
   const bandTop = margin.top + bandHeight * index;
@@ -2222,6 +2232,52 @@ function drawChannelLabels(
     ctx.moveTo(margin.left - 10, markerY);
     ctx.lineTo(margin.left, markerY);
     ctx.stroke();
+  }
+
+  // Zoom X 模式下在右侧 Y 轴显示所有可见通道的名称、自定义名、0 位符号及刻度
+  if (zoomXMode && channel.visible) {
+    const zeroY = bandCenterY + yMid * yScale;
+    const hasCustomName = channel.customName.trim().length > 0;
+    const rightEdge = margin.left + plotWidth + margin.right;
+    const labelX = rightEdge - 8;
+    const markerY = clamp(zeroY, margin.top, margin.top + plotHeight);
+
+    // 0 位短参考线（右侧 Y 轴）
+    ctx.strokeStyle = channel.color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(margin.left + plotWidth, markerY);
+    ctx.lineTo(margin.left + plotWidth + 8, markerY);
+    ctx.stroke();
+
+    ctx.fillStyle = channel.color;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+
+    // 通道名与单位
+    ctx.font = 'bold 11px Inter, ui-sans-serif, system-ui';
+    const nameText = channel.unit ? `${channel.name} (${channel.unit})` : channel.name;
+    ctx.fillText(nameText, labelX, markerY - (hasCustomName ? 12 : 6));
+
+    // 自定义名称
+    if (hasCustomName) {
+      ctx.font = '10px Inter, ui-sans-serif, system-ui';
+      ctx.fillText(channel.customName, labelX, markerY + 2);
+    }
+
+    // 0 位符号
+    ctx.font = '10px Inter, ui-sans-serif, system-ui';
+    ctx.fillText('0', labelX, markerY + (hasCustomName ? 14 : 12));
+
+    // 顶部 / 底部刻度值
+    if (bandHeight >= 50) {
+      const valueTop = yMid + (bandCenterY - bandTop) / yScale;
+      const valueBottom = yMid + (bandCenterY - (bandTop + bandHeight)) / yScale;
+      ctx.font = '10px Inter, ui-sans-serif, system-ui';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(formatAxisValue(valueTop), labelX, bandTop + 10);
+      ctx.fillText(formatAxisValue(valueBottom), labelX, bandTop + bandHeight - 4);
+    }
   }
 
   ctx.globalAlpha = 1;
