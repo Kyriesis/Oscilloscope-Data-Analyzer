@@ -1503,8 +1503,9 @@ function App() {
     ctx.restore();
 
     // 标签绘制在裁剪区域外，确保始终可读；隐藏通道标签变淡
-      channels.forEach((ch, index) => {
-      drawChannelLabels(ctx, ch, index, totalChannels, plotMargin, plotHeight, labelChannelId, zoomXMode, zoomYMode);
+    const singleChannelMode = zoomYMode || horizontalCursorMode || crossCursorMode;
+    channels.forEach((ch, index) => {
+      drawChannelLabels(ctx, ch, index, totalChannels, plotMargin, plotHeight, labelChannelId, singleChannelMode);
     });
 
     // 纵向光标模式下绘制 A/B 标签与测量值文本
@@ -2170,9 +2171,8 @@ function drawChannelLabels(
   total: number,
   margin: { top: number; right: number; bottom: number; left: number },
   plotHeight: number,
-  selectedChannelId: string | null,
-  zoomXMode: boolean,
-  zoomYMode: boolean
+  labelChannelId: string | null,
+  singleChannelMode: boolean
 ) {
   const bandHeight = plotHeight / total;
   const bandTop = margin.top + bandHeight * index;
@@ -2184,14 +2184,15 @@ function drawChannelLabels(
   // 隐藏通道标签变淡
   ctx.globalAlpha = channel.visible ? 1 : 0.35;
 
-  // Zoom X 单独开启时显示所有可见通道；Zoom Y 开启时按 Zoom Y 的单通道策略显示
-  if (channel.visible && ((zoomXMode && !zoomYMode) || channel.id === selectedChannelId)) {
+  // 单通道模式（Zoom Y / 横向 / 纵横）只显示已选中的通道；
+  // 其余情况（初始、重置、Zoom X、纵向光标等）显示所有可见通道
+  if (channel.visible && (!singleChannelMode || channel.id === labelChannelId)) {
     const zeroY = bandCenterY + yMid * yScale;
     const hasCustomName = channel.customName.trim().length > 0;
     const chNameYOffset = hasCustomName ? 20 : 12;
-    // Zoom X 单独模式下每个通道独立占一个带状区域；其余模式选中通道占整个图形区
-    const labelTop = zoomXMode && !zoomYMode ? bandTop : margin.top;
-    const labelBottom = zoomXMode && !zoomYMode ? bandTop + bandHeight : margin.top + plotHeight;
+    // 单通道模式下标签占整个图形区；多通道模式下每个通道占自己的带状区域
+    const labelTop = singleChannelMode ? margin.top : bandTop;
+    const labelBottom = singleChannelMode ? margin.top + plotHeight : bandTop + bandHeight;
     // 保持 CH 标签与 0 位标签均有 2px 间隙
     const minZeroY = labelTop + 26 + chNameYOffset;
     const maxZeroY = labelBottom - 26;
@@ -2216,8 +2217,8 @@ function drawChannelLabels(
     ctx.font = '10px Inter, ui-sans-serif, system-ui';
     ctx.fillText('0', margin.left - 12, stackY + 8);
 
-    // Zoom Y / 横向 / 纵横等单通道模式下保留 Y 轴顶部 / 底部刻度值
-    if (!zoomXMode || zoomYMode) {
+    // 单通道模式下保留 Y 轴顶部 / 底部刻度值
+    if (singleChannelMode) {
       const valueTop = yMid + (bandCenterY - labelTop) / yScale;
       const valueBottom = yMid + (bandCenterY - labelBottom) / yScale;
       ctx.font = '10px Inter, ui-sans-serif, system-ui';
