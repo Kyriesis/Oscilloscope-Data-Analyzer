@@ -272,10 +272,6 @@ function App() {
       setLastCrossActiveChannelId(null);
       applyTestConditionsForFile(filename, csvDate);
       setError(null);
-      // 清空原生文件输入框，避免拖拽/选择后旧文件名残留
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'CSV 解析失败');
       setData(null);
@@ -318,6 +314,10 @@ function App() {
     if (!file) return;
     const text = await file.text();
     loadCsvText(text, file.name);
+    // 拖拽加载后清空原生文件输入框，避免它仍显示上一次“选择文件”的文件名
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
