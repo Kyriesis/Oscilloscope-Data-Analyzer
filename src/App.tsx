@@ -158,10 +158,7 @@ function App() {
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
-  const plotMargin = useMemo(
-    () => ({ ...BASE_MARGIN, right: zoomXMode ? 90 : 24 }),
-    [zoomXMode]
-  );
+  const plotMargin = useMemo(() => BASE_MARGIN, []);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -2187,14 +2184,17 @@ function drawChannelLabels(
   // 隐藏通道标签变淡
   ctx.globalAlpha = channel.visible ? 1 : 0.35;
 
-  // 仅对被选中的可见通道显示左侧通道文字 + 0 位标记
-  if (channel.visible && channel.id === selectedChannelId) {
+  // Zoom X 模式下显示所有可见通道；其他模式仅显示选中通道
+  if (channel.visible && (zoomXMode || channel.id === selectedChannelId)) {
     const zeroY = bandCenterY + yMid * yScale;
     const hasCustomName = channel.customName.trim().length > 0;
     const chNameYOffset = hasCustomName ? 20 : 12;
+    // Zoom X 模式下每个通道独立占一个带状区域；其余模式选中通道占整个图形区
+    const labelTop = zoomXMode ? bandTop : margin.top;
+    const labelBottom = zoomXMode ? bandTop + bandHeight : margin.top + plotHeight;
     // 保持 CH 标签与坐标上端数值、0 位标签与坐标下端数值均有 2px 间隙
-    const minZeroY = margin.top + 26 + chNameYOffset;
-    const maxZeroY = margin.top + plotHeight - 26;
+    const minZeroY = labelTop + 26 + chNameYOffset;
+    const maxZeroY = labelBottom - 26;
     const stackY = clamp(zeroY, minZeroY, maxZeroY);
 
     ctx.fillStyle = channel.color;
@@ -2203,9 +2203,8 @@ function drawChannelLabels(
 
     // 固定通道名与单位（如 CH1 (V)）
     ctx.font = 'bold 12px Inter, ui-sans-serif, system-ui';
-    const ch1YOffset = hasCustomName ? 20 : 12;
     const nameText = channel.unit ? `${channel.name} (${channel.unit})` : channel.name;
-    ctx.fillText(nameText, margin.left - 12, stackY - ch1YOffset);
+    ctx.fillText(nameText, margin.left - 12, stackY - chNameYOffset);
 
     // 用户自定义名称（如 Pawl SW）
     if (hasCustomName) {
@@ -2217,67 +2216,21 @@ function drawChannelLabels(
     ctx.font = '10px Inter, ui-sans-serif, system-ui';
     ctx.fillText('0', margin.left - 12, stackY + 8);
 
-    // 整个 Y 轴顶部 / 底部对应的测量值（基于选中通道的 0 位和 Y 缩放）
-    const valueTop = yMid + (bandCenterY - margin.top) / yScale;
-    const valueBottom = yMid + (bandCenterY - (margin.top + plotHeight)) / yScale;
+    // 该通道 Y 轴顶部 / 底部对应的测量值
+    const valueTop = yMid + (bandCenterY - labelTop) / yScale;
+    const valueBottom = yMid + (bandCenterY - labelBottom) / yScale;
     ctx.font = '10px Inter, ui-sans-serif, system-ui';
-    ctx.fillText(formatAxisValue(valueTop), margin.left - 12, margin.top + 10);
-    ctx.fillText(formatAxisValue(valueBottom), margin.left - 12, margin.top + plotHeight - 4);
+    ctx.fillText(formatAxisValue(valueTop), margin.left - 12, labelTop + 10);
+    ctx.fillText(formatAxisValue(valueBottom), margin.left - 12, labelBottom - 4);
 
     // 0 位短参考线（画在 Y 轴左侧，避免被波形覆盖）
-    const markerY = clamp(zeroY, margin.top, margin.top + plotHeight);
+    const markerY = clamp(zeroY, labelTop, labelBottom);
     ctx.strokeStyle = channel.color;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(margin.left - 10, markerY);
     ctx.lineTo(margin.left, markerY);
     ctx.stroke();
-  }
-
-  // Zoom X 模式下在右侧 Y 轴显示所有可见通道的名称、自定义名、0 位符号及刻度
-  if (zoomXMode && channel.visible) {
-    const zeroY = bandCenterY + yMid * yScale;
-    const hasCustomName = channel.customName.trim().length > 0;
-    const rightEdge = margin.left + plotWidth + margin.right;
-    const labelX = rightEdge - 8;
-    const markerY = clamp(zeroY, margin.top, margin.top + plotHeight);
-
-    // 0 位短参考线（右侧 Y 轴）
-    ctx.strokeStyle = channel.color;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(margin.left + plotWidth, markerY);
-    ctx.lineTo(margin.left + plotWidth + 8, markerY);
-    ctx.stroke();
-
-    ctx.fillStyle = channel.color;
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-
-    // 通道名与单位
-    ctx.font = 'bold 11px Inter, ui-sans-serif, system-ui';
-    const nameText = channel.unit ? `${channel.name} (${channel.unit})` : channel.name;
-    ctx.fillText(nameText, labelX, markerY - (hasCustomName ? 12 : 6));
-
-    // 自定义名称
-    if (hasCustomName) {
-      ctx.font = '10px Inter, ui-sans-serif, system-ui';
-      ctx.fillText(channel.customName, labelX, markerY + 2);
-    }
-
-    // 0 位符号
-    ctx.font = '10px Inter, ui-sans-serif, system-ui';
-    ctx.fillText('0', labelX, markerY + (hasCustomName ? 14 : 12));
-
-    // 顶部 / 底部刻度值
-    if (bandHeight >= 50) {
-      const valueTop = yMid + (bandCenterY - bandTop) / yScale;
-      const valueBottom = yMid + (bandCenterY - (bandTop + bandHeight)) / yScale;
-      ctx.font = '10px Inter, ui-sans-serif, system-ui';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillText(formatAxisValue(valueTop), labelX, bandTop + 10);
-      ctx.fillText(formatAxisValue(valueBottom), labelX, bandTop + bandHeight - 4);
-    }
   }
 
   ctx.globalAlpha = 1;
