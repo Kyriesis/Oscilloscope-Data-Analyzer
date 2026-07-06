@@ -338,6 +338,10 @@ input {
   cursor: pointer;
 }
 
+#file {
+  display: none;
+}
+
 input[type='file'] {
   width: 100%;
   color: #e5e7eb;

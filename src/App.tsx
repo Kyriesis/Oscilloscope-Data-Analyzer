@@ -155,6 +155,7 @@ function App() {
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const channelDragStartRef = useRef<{ y: number; channelId: string } | null>(null);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -271,6 +272,10 @@ function App() {
       setLastCrossActiveChannelId(null);
       applyTestConditionsForFile(filename, csvDate);
       setError(null);
+      // 清空原生文件输入框，避免拖拽/选择后旧文件名残留
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'CSV 解析失败');
       setData(null);
@@ -1802,7 +1807,13 @@ function App() {
             <label className="file-label" htmlFor="file" title={currentFilename ?? '上传或拖拽 CSV'}>
               {currentFilename ?? '上传或拖拽 CSV'}
             </label>
-            <input id="file" type="file" accept=".csv,text/csv" onChange={handleFileChange} />
+            <input
+              id="file"
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleFileChange}
+            />
           </div>
 
           <div className="panel">
