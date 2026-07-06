@@ -1799,8 +1799,8 @@ function App() {
         <aside className="scope-sidebar">
           <div className="panel">
             <h2>文件</h2>
-            <label className="file-label" htmlFor="file">
-              上传或拖拽 CSV
+            <label className="file-label" htmlFor="file" title={currentFilename ?? '上传或拖拽 CSV'}>
+              {currentFilename ?? '上传或拖拽 CSV'}
             </label>
             <input id="file" type="file" accept=".csv,text/csv" onChange={handleFileChange} />
           </div>

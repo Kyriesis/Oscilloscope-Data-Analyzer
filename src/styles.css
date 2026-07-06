@@ -332,6 +332,10 @@ input {
   margin-bottom: 8px;
   color: #9ca3af;
   font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 input[type='file'] {
