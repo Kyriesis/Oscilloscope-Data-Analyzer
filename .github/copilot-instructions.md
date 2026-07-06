@@ -1,0 +1,3 @@
+- This repository contains a Vite + React + TypeScript web app for oscilloscope CSV waveform analysis.
+- The app supports CSV upload, waveform rendering, zoom, pan, and measurement cursor functionality.
+- Keep future changes focused on improving waveform interaction, CSV parsing, and measurement accuracy.
