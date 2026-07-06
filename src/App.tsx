@@ -2216,6 +2216,15 @@ function drawChannelLabels(
     ctx.font = '10px Inter, ui-sans-serif, system-ui';
     ctx.fillText('0', margin.left - 12, stackY + 8);
 
+    // Zoom Y / 横向 / 纵横等单通道模式下保留 Y 轴顶部 / 底部刻度值
+    if (!zoomXMode || zoomYMode) {
+      const valueTop = yMid + (bandCenterY - labelTop) / yScale;
+      const valueBottom = yMid + (bandCenterY - labelBottom) / yScale;
+      ctx.font = '10px Inter, ui-sans-serif, system-ui';
+      ctx.fillText(formatAxisValue(valueTop), margin.left - 12, labelTop + 10);
+      ctx.fillText(formatAxisValue(valueBottom), margin.left - 12, labelBottom - 4);
+    }
+
     // 0 位短参考线（画在 Y 轴左侧，避免被波形覆盖）
     const markerY = clamp(zeroY, labelTop, labelBottom);
     ctx.strokeStyle = channel.color;
