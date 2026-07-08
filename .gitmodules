@@ -1,0 +1,3 @@
+[submodule "wdf2csv-dll"]
+	path = tools/wdf2csv-dll
+	url = https://github.com/Theprocyon/wdf2csv.git

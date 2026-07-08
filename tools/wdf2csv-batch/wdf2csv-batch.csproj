@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <PlatformTarget>x86</PlatformTarget>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\wdf2csv-dll\WDFAPI.cs" />
+  </ItemGroup>
+
+  <Target Name="CopyWdfDlls" AfterTargets="Build">
+    <ItemGroup>
+      <WdfDlls Include="..\wdf2csv-dll\lib\*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WdfDlls)" DestinationFolder="$(TargetDir)DLL\" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>
