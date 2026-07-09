@@ -2,3 +2,16 @@ node_modules
 dist
 .DS_Store
 .env
+
+# Local .NET SDK / runtime installs used only for building
+.dotnet/
+.dotnet-x86/
+dotnet-install.ps1
+nantest.cs
+
+# Build artifacts
+tools/wdf2csv-batch/bin/
+tools/wdf2csv-batch/obj/
+
+# Portable release bundle (large binary, distribute separately)
+wdf2csv-batch-portable/

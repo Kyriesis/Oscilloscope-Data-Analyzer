@@ -33,7 +33,7 @@ namespace Wdf2CsvBatch
     internal class Program
     {
         private const string WDF_MAGIC = "%WDF";
-        private static readonly string[] ModelNames = { "DLM3000", "DLM5000HD", "DLM5000" };
+        private static readonly string[] ModelNames = { "DL350", "DL850E", "DL950", "DLM3000", "DLM5000HD", "DLM5000", "XVWDF" };
 
         static void Main(string[] args)
         {
@@ -180,6 +180,17 @@ namespace Wdf2CsvBatch
                     WDFVDataType vDataType;
                     api.getVDataType(handle, trace, block, out vDataType);
 
+                    double? illegalRaw = null;
+                    if (api.isVIllegalDataSupported())
+                    {
+                        api.getVIllegalDataEnabled(handle, trace, out bool enabled);
+                        if (enabled)
+                        {
+                            api.getVIllegalData(handle, trace, block, out double illegalVal);
+                            illegalRaw = illegalVal;
+                        }
+                    }
+
                     var sb = new StringBuilder();
                     api.getTraceName(handle, trace, sb);
                     string traceName = sb.ToString();
@@ -224,7 +235,7 @@ namespace Wdf2CsvBatch
                         h.Free();
                     }
 
-                    var vValues = GetPhysicalVValues(buff, localBlockSize, vOffset, vResolution, vDataType);
+                    var vValues = GetPhysicalVValues(buff, localBlockSize, vOffset, vResolution, vDataType, illegalRaw);
                     var hValues = GetPhysicalHValues(localBlockSize, localHOffset, localHResolution);
 
                     if (trace == 0)
@@ -278,25 +289,40 @@ namespace Wdf2CsvBatch
             return null;
         }
 
-        private static List<double> GetPhysicalVValues(byte[] data, int dataPoints, double vOffset, double vResolution, WDFVDataType vDataType)
+        private static List<double> GetPhysicalVValues(byte[] data, int dataPoints, double vOffset, double vResolution, WDFVDataType vDataType, double? illegalRaw)
         {
             var values = new List<double>(dataPoints);
             int offset = 0;
+            ushort illegalU16 = illegalRaw.HasValue ? (ushort)(uint)illegalRaw.Value : (ushort)0;
+            bool checkIllegal16 = illegalRaw.HasValue &&
+                                  (vDataType == WDFVDataType.wdfDataTypeUINT16 ||
+                                   vDataType == WDFVDataType.wdfDataTypeSINT16);
             for (int i = 0; i < dataPoints; i++)
             {
-                double? raw = vDataType switch
+                switch (vDataType)
                 {
-                    WDFVDataType.wdfDataTypeUINT16 => GetU16(data, ref offset),
-                    WDFVDataType.wdfDataTypeSINT16 => GetI16(data, ref offset),
-                    WDFVDataType.wdfDataTypeUINT32 => GetU32(data, ref offset),
-                    WDFVDataType.wdfDataTypeSINT32 => GetI32(data, ref offset),
-                    WDFVDataType.wdfDataTypeFLOAT => GetFloat(data, ref offset),
-                    _ => null,
-                };
-
-                if (raw.HasValue)
-                {
-                    values.Add(raw.Value * vResolution + vOffset);
+                    case WDFVDataType.wdfDataTypeUINT16:
+                    case WDFVDataType.wdfDataTypeSINT16:
+                        ushort u16 = GetU16(data, ref offset);
+                        if (checkIllegal16 && u16 == illegalU16)
+                        {
+                            values.Add(double.NaN);
+                        }
+                        else
+                        {
+                            double raw = vDataType == WDFVDataType.wdfDataTypeUINT16 ? u16 : (short)u16;
+                            values.Add(raw * vResolution + vOffset);
+                        }
+                        break;
+                    case WDFVDataType.wdfDataTypeUINT32:
+                        values.Add(GetU32(data, ref offset) * vResolution + vOffset);
+                        break;
+                    case WDFVDataType.wdfDataTypeSINT32:
+                        values.Add(GetI32(data, ref offset) * vResolution + vOffset);
+                        break;
+                    case WDFVDataType.wdfDataTypeFLOAT:
+                        values.Add(GetFloat(data, ref offset) * vResolution + vOffset);
+                        break;
                 }
             }
             return values;
@@ -333,16 +359,15 @@ namespace Wdf2CsvBatch
             writer.WriteLine($"Model, {model}");
             writer.WriteLine($"Date, {File.GetLastWriteTime(sourcePath).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}");
 
-            int count = traces[0].HValues.Count;
+            int count = traces[0].VValues.Count;
             for (int i = 0; i < count; i++)
             {
                 var row = new StringBuilder();
-                row.Append(",");
-                row.Append(traces[0].HValues[i].ToString("G17", CultureInfo.InvariantCulture));
                 foreach (var trace in traces)
                 {
                     row.Append(",");
-                    row.Append(trace.VValues[i].ToString("G17", CultureInfo.InvariantCulture));
+                    double v = trace.VValues[i];
+                    row.Append(double.IsNaN(v) ? "nan" : v.ToString("G17", CultureInfo.InvariantCulture));
                 }
                 writer.WriteLine(row.ToString());
             }

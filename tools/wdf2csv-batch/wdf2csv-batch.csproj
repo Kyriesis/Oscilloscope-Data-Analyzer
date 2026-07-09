@@ -6,17 +6,21 @@
     <PlatformTarget>x86</PlatformTarget>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>CS8618;CS0649</NoWarn>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Include="..\wdf2csv-dll\WDFAPI.cs" />
-  </ItemGroup>
 
   <Target Name="CopyWdfDlls" AfterTargets="Build">
     <ItemGroup>
       <WdfDlls Include="..\wdf2csv-dll\lib\*.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(WdfDlls)" DestinationFolder="$(TargetDir)DLL\" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyWdfDllsPublish" AfterTargets="Publish">
+    <ItemGroup>
+      <WdfDlls Include="..\wdf2csv-dll\lib\*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WdfDlls)" DestinationFolder="$(PublishDir)DLL\" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
