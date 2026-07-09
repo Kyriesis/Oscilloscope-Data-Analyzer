@@ -268,7 +268,7 @@ function App() {
       setDraggingCrossMeasureLabelX(false);
       setHoveredCrossMeasureLabelY(false);
       setDraggingCrossMeasureLabelY(false);
-      setZoomXMode(false);
+      setZoomXMode(true);
       setZoomYMode(false);
       setHoveredChannelId(null);
       setDraggingChannelId(null);
