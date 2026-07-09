@@ -2113,7 +2113,7 @@ function drawAxes(
   ctx.textAlign = 'left';
 }
 
-function dimColor(hex: string, alpha = 0.22): string {
+function dimColor(hex: string, alpha = 0.45): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
