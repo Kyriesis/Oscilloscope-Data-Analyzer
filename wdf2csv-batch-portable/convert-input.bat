@@ -42,8 +42,8 @@ if /i not "%CONFIRM%"=="Y" (
 )
 
 :start_convert
-set "EXE=C:\pio_projects\oscilloscope data analyzer\wdf2csv-batch-portable\wdf2csv-batch.exe"
-set "DLL=C:\pio_projects\oscilloscope data analyzer\wdf2csv-batch-portable\DLL"
+set "EXE=%~dp0wdf2csv-batch.exe"
+set "DLL=%~dp0DLL"
 
 echo.
 echo Converting: %FOLDER%

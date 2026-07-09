@@ -14,4 +14,3 @@ tools/wdf2csv-batch/bin/
 tools/wdf2csv-batch/obj/
 
 # Portable release bundle (large binary, distribute separately)
-wdf2csv-batch-portable/
