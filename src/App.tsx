@@ -1034,6 +1034,7 @@ function App() {
 
     if (cursorMode) {
       if (hoveredMeasureLabel) return;
+      if (!event.ctrlKey) return;
       const dataX = getDataXFromMouse(event.clientX);
       if (dataX !== null) setCursorA(dataX);
       return;
@@ -1042,12 +1043,14 @@ function App() {
     if (horizontalCursorMode) {
       if (hoveredHorizontalMeasureLabel || hoveredHorizontalCursor) return;
       const hoveredChannel = findHoveredChannel(event.clientX, event.clientY, 10);
-      if (hoveredChannel) {
-        setSelectedChannelId(hoveredChannel);
-        setLastHorizontalActiveChannelId(hoveredChannel);
-        setChannels((prev) =>
-          prev.map((ch) => (ch.id === hoveredChannel ? { ...ch, visible: true } : ch))
-        );
+      if (!event.ctrlKey) {
+        if (hoveredChannel) {
+          setSelectedChannelId(hoveredChannel);
+          setLastHorizontalActiveChannelId(hoveredChannel);
+          setChannels((prev) =>
+            prev.map((ch) => (ch.id === hoveredChannel ? { ...ch, visible: true } : ch))
+          );
+        }
         return;
       }
       const ratio = getMouseRatioY(event.clientY);
@@ -1058,12 +1061,14 @@ function App() {
     if (crossCursorMode) {
       if (hoveredCrossMeasureLabelX || hoveredCrossMeasureLabelY || hoveredCrossCursor) return;
       const hoveredChannel = findHoveredChannel(event.clientX, event.clientY, 10);
-      if (hoveredChannel) {
-        setSelectedChannelId(hoveredChannel);
-        setLastCrossActiveChannelId(hoveredChannel);
-        setChannels((prev) =>
-          prev.map((ch) => (ch.id === hoveredChannel ? { ...ch, visible: true } : ch))
-        );
+      if (!event.ctrlKey) {
+        if (hoveredChannel) {
+          setSelectedChannelId(hoveredChannel);
+          setLastCrossActiveChannelId(hoveredChannel);
+          setChannels((prev) =>
+            prev.map((ch) => (ch.id === hoveredChannel ? { ...ch, visible: true } : ch))
+          );
+        }
         return;
       }
       const dataX = getDataXFromMouse(event.clientX);
@@ -1090,6 +1095,7 @@ function App() {
 
   const handleContextMenu = (event: MouseEvent<HTMLCanvasElement>) => {
     if (cursorMode) {
+      if (!event.ctrlKey) return;
       event.preventDefault();
       if (pointerMovedRef.current) return;
       if (hoveredMeasureLabel) return;
@@ -1099,6 +1105,7 @@ function App() {
     }
 
     if (horizontalCursorMode) {
+      if (!event.ctrlKey) return;
       event.preventDefault();
       if (pointerMovedRef.current) return;
       if (hoveredHorizontalMeasureLabel || hoveredHorizontalCursor) return;
@@ -1108,6 +1115,7 @@ function App() {
     }
 
     if (crossCursorMode) {
+      if (!event.ctrlKey) return;
       event.preventDefault();
       if (pointerMovedRef.current) return;
       if (hoveredCrossMeasureLabelX || hoveredCrossMeasureLabelY || hoveredCrossCursor) return;
@@ -1597,7 +1605,7 @@ function App() {
             type="button"
             className={`toolbar-btn ${cursorMode ? 'active' : ''}`}
             onClick={toggleCursorMode}
-            title="激活后左键设置光标 A，右键设置光标 B，可拖动测量线"
+            title="激活后 Ctrl+左键设置光标 A，Ctrl+右键设置光标 B，可拖动测量线"
           >
             纵向光标
           </button>
@@ -1605,7 +1613,7 @@ function App() {
             type="button"
             className={`toolbar-btn ${horizontalCursorMode ? 'active' : ''}`}
             onClick={toggleHorizontalCursorMode}
-            title="激活后选择通道，左键设置光标 C，右键设置光标 D，可拖动测量线"
+            title="激活后选择通道，Ctrl+左键设置光标 C，Ctrl+右键设置光标 D，可拖动测量线"
           >
             横向光标
           </button>
@@ -1613,7 +1621,7 @@ function App() {
             type="button"
             className={`toolbar-btn ${crossCursorMode ? 'active' : ''}`}
             onClick={toggleCrossCursorMode}
-            title="激活后选择通道，左键设置十字线 EF，右键设置十字线 GH，可拖动测量线"
+            title="激活后选择通道，Ctrl+左键设置十字线 EF，Ctrl+右键设置十字线 GH，可拖动测量线"
           >
             纵横光标
           </button>
@@ -2113,7 +2121,7 @@ function drawAxes(
   ctx.textAlign = 'left';
 }
 
-function dimColor(hex: string, alpha = 0.45): string {
+function dimColor(hex: string, alpha = 0.3): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
