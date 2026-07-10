@@ -2515,10 +2515,10 @@ function drawOverlay(
   const voltageText = testVoltage.trim();
   if (tempText || voltageText) {
     const parts: string[] = [];
-    if (tempText) parts.push(`温度：${tempText}`);
-    if (voltageText) parts.push(`电压：${voltageText}`);
+    if (tempText) parts.push(`温度：${tempText}°C`);
+    if (voltageText) parts.push(`电压：${voltageText}V`);
     ctx.textAlign = 'left';
-    ctx.fillText(parts.join('  '), margin.left + 8, margin.top + 16);
+    ctx.fillText(parts.join('  '), 12, 20);
   }
 
   ctx.textAlign = 'left';
