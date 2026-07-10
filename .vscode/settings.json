@@ -1,4 +1,9 @@
 {
   "dotnet.defaultSolution": "oscilloscope data analyzer.sln",
-  "dotnet.dotnetPath": "C:\\Users\\13721\\AppData\\Local\\Microsoft\\dotnet"
+  "dotnetAcquisitionExtension.existingDotnetPath": [
+    {
+      "extensionId": "ms-dotnettools.csharp",
+      "path": "C:\\Users\\13721\\AppData\\Local\\Microsoft\\dotnet\\dotnet.exe"
+    }
+  ]
 }
