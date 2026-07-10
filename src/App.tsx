@@ -1537,8 +1537,8 @@ function App() {
       drawHorizontalCursorLabel(ctx, cursorH, '#64d0ff', 'H', plotMargin, plotWidth, plotHeight, screenYH);
     }
 
-    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX);
-  }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, hoveredChannelId, draggingChannelId, selectedChannelId, cursorMode, cursorA, cursorB, hoveredCursor, draggingCursor, measureLabelY, draggingMeasureLabel, hoveredMeasureLabel, horizontalCursorMode, cursorC, cursorD, hoveredHorizontalCursor, draggingHorizontalCursor, horizontalMeasureLabelX, draggingHorizontalMeasureLabel, hoveredHorizontalMeasureLabel, crossCursorMode, cursorE, cursorF, cursorG, cursorH, hoveredCrossCursor, draggingCrossCursor, crossMeasureLabelY, crossMeasureLabelX, draggingCrossMeasureLabelX, draggingCrossMeasureLabelY, hoveredCrossMeasureLabelX, hoveredCrossMeasureLabelY, activeChannel]);
+    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX, testTemp, testVoltage);
+  }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, hoveredChannelId, draggingChannelId, selectedChannelId, cursorMode, cursorA, cursorB, hoveredCursor, draggingCursor, measureLabelY, draggingMeasureLabel, hoveredMeasureLabel, horizontalCursorMode, cursorC, cursorD, hoveredHorizontalCursor, draggingHorizontalCursor, horizontalMeasureLabelX, draggingHorizontalMeasureLabel, hoveredHorizontalMeasureLabel, crossCursorMode, cursorE, cursorF, cursorG, cursorH, hoveredCrossCursor, draggingCrossCursor, crossMeasureLabelY, crossMeasureLabelX, draggingCrossMeasureLabelX, draggingCrossMeasureLabelY, hoveredCrossMeasureLabelX, hoveredCrossMeasureLabelY, activeChannel, testTemp, testVoltage]);
 
   // 计算每个通道在光标处的值
   const cursorValues = useMemo(() => {
@@ -2496,7 +2496,9 @@ function drawOverlay(
   plotWidth: number,
   minX: number,
   maxX: number,
-  zoomX: number
+  zoomX: number,
+  testTemp: string,
+  testVoltage: string
 ) {
   if (!data) return;
 
@@ -2507,6 +2509,18 @@ function drawOverlay(
   ctx.font = '13px Inter, ui-sans-serif, system-ui';
   ctx.textAlign = 'right';
   ctx.fillText(formatTimebase(secondsPerDiv), margin.left + plotWidth - 8, margin.top + 16);
+
+  // 左上角显示温度和电压信息；两者均为空时不显示
+  const tempText = testTemp.trim();
+  const voltageText = testVoltage.trim();
+  if (tempText || voltageText) {
+    const parts: string[] = [];
+    if (tempText) parts.push(`温度：${tempText}`);
+    if (voltageText) parts.push(`电压：${voltageText}`);
+    ctx.textAlign = 'left';
+    ctx.fillText(parts.join('  '), margin.left + 8, margin.top + 16);
+  }
+
   ctx.textAlign = 'left';
 }
 
