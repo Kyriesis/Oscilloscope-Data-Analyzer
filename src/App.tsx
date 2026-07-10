@@ -155,6 +155,21 @@ function App() {
   const [testLocation, setTestLocation] = useState('');
   const [testDate, setTestDate] = useState('');
   const [currentFilename, setCurrentFilename] = useState<string | null>(null);
+  const [sortLockEnabled, setSortLockEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('oscilloscope-sort-lock-enabled') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [lockedOrder, setLockedOrder] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('oscilloscope-sort-lock-order');
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
@@ -218,6 +233,37 @@ function App() {
     }
   };
 
+  /** 如果开启了序列锁定，且新文件通道与锁定顺序完全匹配，则按锁定顺序重排 */
+  function reorderChannelsByLock(
+    initialized: Channel[],
+    lockEnabled: boolean,
+    order: string[]
+  ): Channel[] {
+    if (!lockEnabled || order.length === 0) return initialized;
+    if (initialized.length !== order.length) return initialized;
+    const initializedNames = new Set(initialized.map((ch) => ch.name));
+    const lockNames = new Set(order);
+    if (
+      initializedNames.size !== order.length ||
+      lockNames.size !== order.length ||
+      !order.every((name) => initializedNames.has(name))
+    ) {
+      return initialized;
+    }
+    const channelMap = new Map(initialized.map((ch) => [ch.name, ch]));
+    return order.map((name) => channelMap.get(name)!);
+  }
+
+  const toggleSortLock = () => {
+    setSortLockEnabled((prev) => {
+      const next = !prev;
+      if (next && channels.length > 0) {
+        setLockedOrder(channels.map((ch) => ch.name));
+      }
+      return next;
+    });
+  };
+
   // 加载 CSV 后重置视图
   const loadCsvText = (text: string, filename?: string) => {
     try {
@@ -230,12 +276,13 @@ function App() {
       }
       const parsed = parseYokogawaCsv(text);
       const csvDate = formatCsvDate(parsed.metadata.Date);
-      const initializedChannels = parsed.channels.map((ch) => ({
+      let initializedChannels = parsed.channels.map((ch) => ({
         ...ch,
         customName: ch.customName ?? '',
         yOffset: 0,
         yZoom: 1,
       }));
+      initializedChannels = reorderChannelsByLock(initializedChannels, sortLockEnabled, lockedOrder);
       setData(parsed);
       setChannels(initializedChannels);
       setZoomX(1);
@@ -312,6 +359,16 @@ function App() {
       // 存储失败不影响使用
     }
   }, [testTemp, testVoltage, testLocation, testDate, currentFilename]);
+
+  // 持久化通道序列锁定状态与锁定顺序
+  useEffect(() => {
+    try {
+      localStorage.setItem('oscilloscope-sort-lock-enabled', String(sortLockEnabled));
+      localStorage.setItem('oscilloscope-sort-lock-order', JSON.stringify(lockedOrder));
+    } catch {
+      // 存储失败不影响使用
+    }
+  }, [sortLockEnabled, lockedOrder]);
 
   const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -1200,16 +1257,19 @@ function App() {
       return;
     }
     const insertIndex = computeDropIndex(event);
-    setChannels((prev) => {
-      const fromIndex = prev.findIndex((ch) => ch.id === sourceId);
-      if (fromIndex === -1) return prev;
+    const fromIndex = channels.findIndex((ch) => ch.id === sourceId);
+    if (fromIndex !== -1) {
       const targetIndex = fromIndex < insertIndex ? insertIndex - 1 : insertIndex;
-      if (targetIndex === fromIndex) return prev;
-      const next = [...prev];
-      const [moved] = next.splice(fromIndex, 1);
-      next.splice(targetIndex, 0, moved);
-      return next;
-    });
+      if (targetIndex !== fromIndex) {
+        const next = [...channels];
+        const [moved] = next.splice(fromIndex, 1);
+        next.splice(targetIndex, 0, moved);
+        setChannels(next);
+        if (sortLockEnabled) {
+          setLockedOrder(next.map((ch) => ch.name));
+        }
+      }
+    }
     draggedChannelRef.current = null;
     setDraggedId(null);
     setDropIndex(null);
@@ -1831,7 +1891,17 @@ function App() {
           </div>
 
           <div className="panel">
-            <h2>通道</h2>
+            <div className="panel-header">
+              <h2>通道</h2>
+              <button
+                type="button"
+                className={`lock-btn ${sortLockEnabled ? 'active' : ''}`}
+                onClick={toggleSortLock}
+                title={sortLockEnabled ? '序列锁定已开启：相同通道组的新文件将沿用当前排序' : '序列锁定已关闭：新文件按默认顺序加载'}
+              >
+                {sortLockEnabled ? '🔒 序列锁定' : '🔓 序列锁定'}
+              </button>
+            </div>
             <div
               className="channel-list"
               onDragOver={handleListDragOver}
