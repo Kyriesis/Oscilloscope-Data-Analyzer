@@ -1032,34 +1032,49 @@ function App() {
   const handleCanvasClick = (event: MouseEvent<HTMLCanvasElement>) => {
     if (pointerMovedRef.current) return;
 
-    // 测量模式下单击不再放置测量线，仅用于选中通道（横向/纵横）或平移
     if (cursorMode) {
+      if (hoveredMeasureLabel) return;
+      if (!event.ctrlKey) return;
+      const dataX = getDataXFromMouse(event.clientX);
+      if (dataX !== null) setCursorA(dataX);
       return;
     }
 
     if (horizontalCursorMode) {
       if (hoveredHorizontalMeasureLabel || hoveredHorizontalCursor) return;
       const hoveredChannel = findHoveredChannel(event.clientX, event.clientY, 10);
-      if (hoveredChannel) {
-        setSelectedChannelId(hoveredChannel);
-        setLastHorizontalActiveChannelId(hoveredChannel);
-        setChannels((prev) =>
-          prev.map((ch) => (ch.id === hoveredChannel ? { ...ch, visible: true } : ch))
-        );
+      if (!event.ctrlKey) {
+        if (hoveredChannel) {
+          setSelectedChannelId(hoveredChannel);
+          setLastHorizontalActiveChannelId(hoveredChannel);
+          setChannels((prev) =>
+            prev.map((ch) => (ch.id === hoveredChannel ? { ...ch, visible: true } : ch))
+          );
+        }
+        return;
       }
+      const ratio = getMouseRatioY(event.clientY);
+      if (ratio !== null) setCursorC(ratio);
       return;
     }
 
     if (crossCursorMode) {
       if (hoveredCrossMeasureLabelX || hoveredCrossMeasureLabelY || hoveredCrossCursor) return;
       const hoveredChannel = findHoveredChannel(event.clientX, event.clientY, 10);
-      if (hoveredChannel) {
-        setSelectedChannelId(hoveredChannel);
-        setLastCrossActiveChannelId(hoveredChannel);
-        setChannels((prev) =>
-          prev.map((ch) => (ch.id === hoveredChannel ? { ...ch, visible: true } : ch))
-        );
+      if (!event.ctrlKey) {
+        if (hoveredChannel) {
+          setSelectedChannelId(hoveredChannel);
+          setLastCrossActiveChannelId(hoveredChannel);
+          setChannels((prev) =>
+            prev.map((ch) => (ch.id === hoveredChannel ? { ...ch, visible: true } : ch))
+          );
+        }
+        return;
       }
+      const dataX = getDataXFromMouse(event.clientX);
+      const ratio = getMouseRatioY(event.clientY);
+      if (dataX !== null) setCursorE(dataX);
+      if (ratio !== null) setCursorF(ratio);
       return;
     }
 
@@ -1078,44 +1093,36 @@ function App() {
     }
   };
 
-  const handleDoubleClick = (event: MouseEvent<HTMLCanvasElement>) => {
+  const handleContextMenu = (event: MouseEvent<HTMLCanvasElement>) => {
     if (cursorMode) {
+      if (!event.ctrlKey) return;
       event.preventDefault();
+      if (pointerMovedRef.current) return;
+      if (hoveredMeasureLabel) return;
       const dataX = getDataXFromMouse(event.clientX);
-      if (dataX === null) return;
-      if (event.button === 0) setCursorA(dataX);
-      else if (event.button === 2) setCursorB(dataX);
+      if (dataX !== null) setCursorB(dataX);
       return;
     }
 
     if (horizontalCursorMode) {
+      if (!event.ctrlKey) return;
       event.preventDefault();
+      if (pointerMovedRef.current) return;
+      if (hoveredHorizontalMeasureLabel || hoveredHorizontalCursor) return;
       const ratio = getMouseRatioY(event.clientY);
-      if (ratio === null) return;
-      if (event.button === 0) setCursorC(ratio);
-      else if (event.button === 2) setCursorD(ratio);
+      if (ratio !== null) setCursorD(ratio);
       return;
     }
 
     if (crossCursorMode) {
+      if (!event.ctrlKey) return;
       event.preventDefault();
+      if (pointerMovedRef.current) return;
+      if (hoveredCrossMeasureLabelX || hoveredCrossMeasureLabelY || hoveredCrossCursor) return;
       const dataX = getDataXFromMouse(event.clientX);
       const ratio = getMouseRatioY(event.clientY);
-      if (event.button === 0) {
-        if (dataX !== null) setCursorE(dataX);
-        if (ratio !== null) setCursorF(ratio);
-      } else if (event.button === 2) {
-        if (dataX !== null) setCursorG(dataX);
-        if (ratio !== null) setCursorH(ratio);
-      }
-      return;
-    }
-  };
-
-  const handleContextMenu = (event: MouseEvent<HTMLCanvasElement>) => {
-    // 测量模式下右键单击不再放置测量线，仅阻止默认菜单；双击右键在 handleDoubleClick 中处理
-    if (cursorMode || horizontalCursorMode || crossCursorMode) {
-      event.preventDefault();
+      if (dataX !== null) setCursorG(dataX);
+      if (ratio !== null) setCursorH(ratio);
       return;
     }
 
@@ -1598,7 +1605,7 @@ function App() {
             type="button"
             className={`toolbar-btn ${cursorMode ? 'active' : ''}`}
             onClick={toggleCursorMode}
-            title="激活后双击左键设置光标 A，双击右键设置光标 B，可拖动测量线"
+            title="激活后 Ctrl+左键设置光标 A，Ctrl+右键设置光标 B，可拖动测量线"
           >
             纵向光标
           </button>
@@ -1606,7 +1613,7 @@ function App() {
             type="button"
             className={`toolbar-btn ${horizontalCursorMode ? 'active' : ''}`}
             onClick={toggleHorizontalCursorMode}
-            title="激活后选择通道，双击左键设置光标 C，双击右键设置光标 D，可拖动测量线"
+            title="激活后选择通道，Ctrl+左键设置光标 C，Ctrl+右键设置光标 D，可拖动测量线"
           >
             横向光标
           </button>
@@ -1614,7 +1621,7 @@ function App() {
             type="button"
             className={`toolbar-btn ${crossCursorMode ? 'active' : ''}`}
             onClick={toggleCrossCursorMode}
-            title="激活后选择通道，双击左键设置十字线 EF，双击右键设置十字线 GH，可拖动测量线"
+            title="激活后选择通道，Ctrl+左键设置十字线 EF，Ctrl+右键设置十字线 GH，可拖动测量线"
           >
             纵横光标
           </button>
@@ -1699,7 +1706,6 @@ function App() {
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
               onClick={handleCanvasClick}
-              onDoubleClick={handleDoubleClick}
               onContextMenu={handleContextMenu}
             />
           </div>
