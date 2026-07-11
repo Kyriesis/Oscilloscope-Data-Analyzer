@@ -1179,7 +1179,7 @@ function App() {
         setChannels((prev) =>
           prev.map((ch) => {
             if (ch.id !== hovered) return ch;
-            const nextZoom = clamp(ch.yZoom * 2, 0.25, 20);
+            const nextZoom = clamp(ch.yZoom * 2, 0.015625, 20);
             updateLockedY(ch.name, ch.yOffset, nextZoom);
             return { ...ch, yZoom: nextZoom };
           })
@@ -1227,7 +1227,7 @@ function App() {
       setChannels((prev) =>
         prev.map((ch) => {
           if (ch.id !== hoveredChannelId) return ch;
-          const nextZoom = clamp(ch.yZoom * 0.5, 0.25, 20);
+          const nextZoom = clamp(ch.yZoom * 0.5, 0.015625, 20);
           updateLockedY(ch.name, ch.yOffset, nextZoom);
           return { ...ch, yZoom: nextZoom };
         })
