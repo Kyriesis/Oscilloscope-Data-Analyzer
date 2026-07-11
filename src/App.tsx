@@ -1697,10 +1697,10 @@ function App() {
     const dataYF = crossCursorMode ? getActiveChannelYFromRatio(cursorF) : null;
     const dataYH = crossCursorMode ? getActiveChannelYFromRatio(cursorH) : null;
     if (crossCursorMode) {
-      drawCursorLine(ctx, cursorE, '#ff8a64', plotMargin, plotHeight, minX, scaleX, panX);
-      drawCursorLine(ctx, cursorG, '#64d0ff', plotMargin, plotHeight, minX, scaleX, panX);
-      drawHorizontalCursorLine(ctx, cursorF, '#ff8a64', plotMargin, plotWidth, plotHeight, screenYF);
-      drawHorizontalCursorLine(ctx, cursorH, '#64d0ff', plotMargin, plotWidth, plotHeight, screenYH);
+      drawCursorLine(ctx, cursorE, '#ff8a64', plotMargin, plotHeight, minX, scaleX, panX, 0.8);
+      drawCursorLine(ctx, cursorG, '#64d0ff', plotMargin, plotHeight, minX, scaleX, panX, 0.8);
+      drawHorizontalCursorLine(ctx, cursorF, '#ff8a64', plotMargin, plotWidth, plotHeight, screenYF, 0.8);
+      drawHorizontalCursorLine(ctx, cursorH, '#64d0ff', plotMargin, plotWidth, plotHeight, screenYH, 0.8);
       drawMeasureLine(ctx, cursorE, cursorG, crossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, cursorE !== null && cursorG !== null ? formatDeltaX(cursorG - cursorE) : undefined);
       drawCrossMeasureXLabel(ctx, cursorE, cursorG, crossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
       drawHorizontalMeasureAnnotation(ctx, dataYF, dataYH, crossMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYF, screenYH);
@@ -2485,13 +2485,14 @@ function drawCursorLine(
   plotHeight: number,
   minX: number,
   scaleX: number,
-  panX: number
+  panX: number,
+  lineWidth = 0.6
 ) {
   if (cursorX === null) return;
   const screenX = margin.left + (cursorX - minX) * scaleX + panX;
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = 0.6;
+  ctx.lineWidth = lineWidth;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(screenX, margin.top);
@@ -2530,13 +2531,14 @@ function drawHorizontalCursorLine(
   margin: { top: number; right: number; bottom: number; left: number },
   plotWidth: number,
   plotHeight: number,
-  screenY: number | null
+  screenY: number | null,
+  lineWidth = 0.6
 ) {
   if (cursorY === null || screenY === null) return;
   if (screenY < margin.top || screenY > margin.top + plotHeight) return;
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = 0.6;
+  ctx.lineWidth = lineWidth;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(margin.left, screenY);
