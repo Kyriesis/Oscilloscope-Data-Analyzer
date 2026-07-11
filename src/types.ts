@@ -28,6 +28,8 @@ export interface Channel {
   yOffset: number;
   /** 垂直方向缩放因子 */
   yZoom: number;
+  /** 是否垂直翻转（通道反相） */
+  inverted?: boolean;
 }
 
 export interface OscilloscopeData {

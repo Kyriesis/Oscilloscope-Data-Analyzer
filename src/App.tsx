@@ -72,7 +72,8 @@ function getChannelYOffsetBounds(
   const ySpan = channel.maxY - channel.minY || 1;
   const yScale = ((bandHeight * 0.75) / ySpan) * channel.yZoom;
   const yMid = (channel.minY + channel.maxY) / 2;
-  const zeroYWithoutOffset = bandCenterY + yMid * yScale;
+  const flip = channel.inverted ? -1 : 1;
+  const zeroYWithoutOffset = bandCenterY + yMid * yScale * flip;
 
   const hasCustomName = channel.customName.trim().length > 0;
   const chNameYOffset = hasCustomName ? 20 : 12;
@@ -301,11 +302,12 @@ function App() {
       }
       const parsed = parseYokogawaCsv(text);
       const csvDate = formatCsvDate(parsed.metadata.Date);
-      let initializedChannels = parsed.channels.map((ch) => ({
+      let initializedChannels: Channel[] = parsed.channels.map((ch) => ({
         ...ch,
         customName: ch.customName ?? '',
         yOffset: 0,
         yZoom: 1,
+        inverted: ch.inverted ?? false,
       }));
       initializedChannels = reorderChannelsByLock(initializedChannels, sortLockEnabled, lockedOrder, lockedY);
 
@@ -534,6 +536,7 @@ function App() {
       const ySpan = ch.maxY - ch.minY || 1;
       const yScale = ((bandHeight * 0.75) / ySpan) * ch.yZoom;
       const yMid = (ch.minY + ch.maxY) / 2;
+      const flip = ch.inverted ? -1 : 1;
 
       let channelMinDist = Number.POSITIVE_INFINITY;
       for (let i = 0; i < ch.points.length - 1; i += 1) {
@@ -545,8 +548,8 @@ function App() {
         if (Math.max(x0, x1) < screenX - threshold || Math.min(x0, x1) > screenX + threshold) {
           continue;
         }
-        const y0 = bandCenterY - (p0.y - yMid) * yScale + ch.yOffset;
-        const y1 = bandCenterY - (p1.y - yMid) * yScale + ch.yOffset;
+        const y0 = bandCenterY - (p0.y - yMid) * yScale * flip + ch.yOffset;
+        const y1 = bandCenterY - (p1.y - yMid) * yScale * flip + ch.yOffset;
         const dist = pointToSegmentDistance(screenX, screenY, x0, y0, x1, y1);
         if (dist < channelMinDist) channelMinDist = dist;
       }
@@ -653,7 +656,8 @@ function App() {
     const ySpan = activeChannel.maxY - activeChannel.minY || 1;
     const yScale = ((bandHeight * 0.75) / ySpan) * activeChannel.yZoom;
     const yMid = (activeChannel.minY + activeChannel.maxY) / 2;
-    return yMid - (screenY - bandCenterY - activeChannel.yOffset) / yScale;
+    const flip = activeChannel.inverted ? -1 : 1;
+    return yMid - (screenY - bandCenterY - activeChannel.yOffset) * flip / yScale;
   };
 
   const getActiveChannelScreenYFromRatio = (ratio: number | null): number | null => {
@@ -1253,6 +1257,12 @@ function App() {
   const toggleChannel = (id: string) => {
     setChannels((prev) =>
       prev.map((ch) => (ch.id === id ? { ...ch, visible: !ch.visible } : ch))
+    );
+  };
+
+  const toggleChannelInvert = (id: string) => {
+    setChannels((prev) =>
+      prev.map((ch) => (ch.id === id ? { ...ch, inverted: !ch.inverted } : ch))
     );
   };
 
@@ -2052,6 +2062,17 @@ function App() {
                           {ch.customName ? `(${ch.customName})` : <span className="custom-name-placeholder">(Name)</span>}
                         </span>
                       )}
+                      <button
+                        type="button"
+                        className={`channel-invert-btn ${ch.inverted ? 'active' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleChannelInvert(ch.id);
+                        }}
+                        title={ch.inverted ? '取消反相' : '通道反相'}
+                      >
+                        R
+                      </button>
                       <span className="channel-unit">[{ch.unit}]</span>
                     </div>
                   </div>
@@ -2290,6 +2311,7 @@ function drawChannelWaveform(
   const ySpan = channel.maxY - channel.minY || 1;
   const yScale = ((bandHeight * 0.75) / ySpan) * channel.yZoom;
   const yMid = (channel.minY + channel.maxY) / 2;
+  const flip = channel.inverted ? -1 : 1;
 
   // 波形：横向/纵横光标模式下，被选中/激活通道保持原样，其余通道变暗
   const isSelected = channel.id === selectedChannelId;
@@ -2302,7 +2324,7 @@ function drawChannelWaveform(
   let first = true;
   for (const point of channel.points) {
     const x = margin.left + (point.x - minX) * scaleX + panX;
-    const y = bandCenterY - (point.y - yMid) * yScale + channel.yOffset;
+    const y = bandCenterY - (point.y - yMid) * yScale * flip + channel.yOffset;
     if (first) {
       ctx.moveTo(x, y);
       first = false;
@@ -2329,6 +2351,7 @@ function drawChannelLabels(
   const ySpan = channel.maxY - channel.minY || 1;
   const yScale = ((bandHeight * 0.75) / ySpan) * channel.yZoom;
   const yMid = (channel.minY + channel.maxY) / 2;
+  const flip = channel.inverted ? -1 : 1;
 
   // 隐藏通道标签变淡
   ctx.globalAlpha = channel.visible ? 1 : 0.35;
@@ -2336,7 +2359,7 @@ function drawChannelLabels(
   // 单通道模式（Zoom Y / 横向 / 纵横）只显示已选中的通道；
   // 其余情况（初始、重置、Zoom X、纵向光标等）显示所有可见通道
   if (channel.visible && (!singleChannelMode || channel.id === labelChannelId)) {
-    const zeroY = bandCenterY + yMid * yScale;
+    const zeroY = bandCenterY + yMid * yScale * flip;
     const hasCustomName = channel.customName.trim().length > 0;
     const chNameYOffset = hasCustomName ? 20 : 12;
     // 单通道模式下标签占整个图形区；多通道模式下每个通道占自己的带状区域
@@ -2366,10 +2389,10 @@ function drawChannelLabels(
     ctx.font = '10px Inter, ui-sans-serif, system-ui';
     ctx.fillText('0', margin.left - 12, stackY + 8);
 
-    // 单通道模式下保留 Y 轴顶部 / 底部刻度值
+    // 单通道模式下保留 Y 轴顶部 / 底部刻度值（反相时上下互换）
     if (singleChannelMode) {
-      const valueTop = yMid + (bandCenterY - labelTop) / yScale;
-      const valueBottom = yMid + (bandCenterY - labelBottom) / yScale;
+      const valueTop = yMid + (bandCenterY - labelTop) * flip / yScale;
+      const valueBottom = yMid + (bandCenterY - labelBottom) * flip / yScale;
       ctx.font = '10px Inter, ui-sans-serif, system-ui';
       ctx.fillText(formatAxisValue(valueTop), margin.left - 12, labelTop + 10);
       ctx.fillText(formatAxisValue(valueBottom), margin.left - 12, labelBottom - 4);

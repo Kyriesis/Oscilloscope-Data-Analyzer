@@ -139,6 +139,7 @@ export function parseYokogawaCsv(text: string): OscilloscopeData {
       visible: true,
       yOffset: 0,
       yZoom: 1,
+      inverted: false,
     };
   });
 
