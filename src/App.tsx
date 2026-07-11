@@ -1651,8 +1651,8 @@ function App() {
         ? channels.find((ch) => ch.id === selectedChannelId && ch.visible) ?? null
         : activeChannel
       : null;
-    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX, testTemp, testVoltage, singleChannelMode, overlayChannel, totalChannels);
-  }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, hoveredChannelId, draggingChannelId, selectedChannelId, cursorMode, cursorA, cursorB, hoveredCursor, draggingCursor, measureLabelY, draggingMeasureLabel, hoveredMeasureLabel, horizontalCursorMode, cursorC, cursorD, hoveredHorizontalCursor, draggingHorizontalCursor, horizontalMeasureLabelX, draggingHorizontalMeasureLabel, hoveredHorizontalMeasureLabel, crossCursorMode, cursorE, cursorF, cursorG, cursorH, hoveredCrossCursor, draggingCrossCursor, crossMeasureLabelY, crossMeasureLabelX, draggingCrossMeasureLabelX, draggingCrossMeasureLabelY, hoveredCrossMeasureLabelX, hoveredCrossMeasureLabelY, activeChannel, testTemp, testVoltage]);
+    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX, testTemp, testVoltage, singleChannelMode, overlayChannel, totalChannels, currentFilename);
+  }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, hoveredChannelId, draggingChannelId, selectedChannelId, cursorMode, cursorA, cursorB, hoveredCursor, draggingCursor, measureLabelY, draggingMeasureLabel, hoveredMeasureLabel, horizontalCursorMode, cursorC, cursorD, hoveredHorizontalCursor, draggingHorizontalCursor, horizontalMeasureLabelX, draggingHorizontalMeasureLabel, hoveredHorizontalMeasureLabel, crossCursorMode, cursorE, cursorF, cursorG, cursorH, hoveredCrossCursor, draggingCrossCursor, crossMeasureLabelY, crossMeasureLabelX, draggingCrossMeasureLabelX, draggingCrossMeasureLabelY, hoveredCrossMeasureLabelX, hoveredCrossMeasureLabelY, activeChannel, testTemp, testVoltage, currentFilename]);
 
   // 计算每个通道在光标处的值
   const cursorValues = useMemo(() => {
@@ -2627,9 +2627,18 @@ function drawOverlay(
   testVoltage: string,
   singleChannelMode: boolean,
   overlayChannel: Channel | null,
-  total: number
+  total: number,
+  filename: string | null
 ) {
   if (!data) return;
+
+  // 右上角显示当前数据文件名
+  if (filename) {
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '13px Inter, ui-sans-serif, system-ui';
+    ctx.textAlign = 'right';
+    ctx.fillText(filename, width - 12, 20);
+  }
 
   // 右上角 X 轴时基：每格时间
   const xSpan = maxX - minX || 1;
