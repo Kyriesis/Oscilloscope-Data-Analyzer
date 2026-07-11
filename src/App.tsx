@@ -2223,26 +2223,26 @@ function App() {
                 <span className="cursor-a">
                   F: {cursorF !== null ? formatValue(getActiveChannelYFromRatio(cursorF), activeChannel.unit) : '未选择'}
                 </span>
-                <span className="cursor-b" style={{ width: '100%' }}>
+                <span className="cursor-b">
                   G: {cursorG !== null ? cursorG.toFixed(6) : '未选择'}
                 </span>
                 <span className="cursor-b">
                   H: {cursorH !== null ? formatValue(getActiveChannelYFromRatio(cursorH), activeChannel.unit) : '未选择'}
                 </span>
                 {cursorE !== null && cursorG !== null && (
-                  <span className="cursor-delta" style={{ width: '100%' }}>
-                    {formatDeltaX(cursorG - cursorE)}
-                    {Math.abs(cursorG - cursorE) > 1e-12 && (
-                      <>  1/ΔX = {(1 / Math.abs(cursorG - cursorE)).toFixed(3)} Hz</>
-                    )}
-                  </span>
+                  <span className="cursor-delta">{formatDeltaX(cursorG - cursorE)}</span>
                 )}
                 {cursorF !== null && cursorH !== null && (
-                  <span className="cursor-delta" style={{ width: '100%' }}>
+                  <span className="cursor-delta">
                     ΔY: {formatValue(
                       (getActiveChannelYFromRatio(cursorH) ?? 0) - (getActiveChannelYFromRatio(cursorF) ?? 0),
                       activeChannel.unit
                     )}
+                  </span>
+                )}
+                {cursorE !== null && cursorG !== null && Math.abs(cursorG - cursorE) > 1e-12 && (
+                  <span className="cursor-delta" style={{ width: '100%' }}>
+                    1/ΔX = {(1 / Math.abs(cursorG - cursorE)).toFixed(3)} Hz
                   </span>
                 )}
               </div>
