@@ -1637,7 +1637,12 @@ function App() {
       drawHorizontalCursorLabel(ctx, cursorH, '#64d0ff', 'H', plotMargin, plotWidth, plotHeight, screenYH);
     }
 
-    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX, testTemp, testVoltage);
+    const overlayChannel = singleChannelMode
+      ? zoomYMode
+        ? channels.find((ch) => ch.id === selectedChannelId && ch.visible) ?? null
+        : activeChannel
+      : null;
+    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX, testTemp, testVoltage, singleChannelMode, overlayChannel);
   }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, hoveredChannelId, draggingChannelId, selectedChannelId, cursorMode, cursorA, cursorB, hoveredCursor, draggingCursor, measureLabelY, draggingMeasureLabel, hoveredMeasureLabel, horizontalCursorMode, cursorC, cursorD, hoveredHorizontalCursor, draggingHorizontalCursor, horizontalMeasureLabelX, draggingHorizontalMeasureLabel, hoveredHorizontalMeasureLabel, crossCursorMode, cursorE, cursorF, cursorG, cursorH, hoveredCrossCursor, draggingCrossCursor, crossMeasureLabelY, crossMeasureLabelX, draggingCrossMeasureLabelX, draggingCrossMeasureLabelY, hoveredCrossMeasureLabelX, hoveredCrossMeasureLabelY, activeChannel, testTemp, testVoltage]);
 
   // 计算每个通道在光标处的值
@@ -2610,7 +2615,9 @@ function drawOverlay(
   maxX: number,
   zoomX: number,
   testTemp: string,
-  testVoltage: string
+  testVoltage: string,
+  singleChannelMode: boolean,
+  overlayChannel: Channel | null
 ) {
   if (!data) return;
 
@@ -2633,6 +2640,19 @@ function drawOverlay(
     ctx.fillText(parts.join('  '), 12, 20);
   }
 
+  // Zoom Y / 横向 / 纵横测量模式下，左上角显示当前选中通道的 Y 轴每格电压
+  if (singleChannelMode && overlayChannel) {
+    const ySpan = overlayChannel.maxY - overlayChannel.minY || 1;
+    const voltsPerDiv = ySpan / (overlayChannel.yZoom * 7.5);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = overlayChannel.color;
+    ctx.fillText(
+      formatVoltagePerDiv(voltsPerDiv, overlayChannel.unit || 'V'),
+      12,
+      tempText || voltageText ? 38 : 20
+    );
+  }
+
   ctx.textAlign = 'left';
 }
 
@@ -2651,6 +2671,15 @@ function formatTimebase(secondsPerDiv: number): string {
   if (secondsPerDiv >= 1e-3) return `[${(secondsPerDiv * 1e3).toFixed(3)}ms/div]`;
   if (secondsPerDiv >= 1e-6) return `[${(secondsPerDiv * 1e6).toFixed(3)}μs/div]`;
   return `[${(secondsPerDiv * 1e9).toFixed(3)}ns/div]`;
+}
+
+function formatVoltagePerDiv(voltsPerDiv: number, unit: string): string {
+  if (!Number.isFinite(voltsPerDiv) || voltsPerDiv <= 0) return `[0${unit}/div]`;
+  const abs = Math.abs(voltsPerDiv);
+  if (abs >= 1) return `[${abs.toFixed(3)}${unit}/div]`;
+  if (abs >= 1e-3) return `[${(abs * 1e3).toFixed(3)}m${unit}/div]`;
+  if (abs >= 1e-6) return `[${(abs * 1e6).toFixed(3)}μ${unit}/div]`;
+  return `[${(abs * 1e9).toFixed(3)}n${unit}/div]`;
 }
 
 /** 将任意时基值吸附到标准序列（1,2,3,...,9 × 10^n）上 */
