@@ -2159,7 +2159,7 @@ function App() {
                   <span className="cursor-delta">
                     {formatDeltaT(cursorB - cursorA)}
                     {Math.abs(cursorB - cursorA) > 1e-12 && (
-                      <> 1/ΔT = {(1 / Math.abs(cursorB - cursorA)).toFixed(3)} Hz</>
+                      <>  1/ΔT = {(1 / Math.abs(cursorB - cursorA)).toFixed(3)} Hz</>
                     )}
                   </span>
                 )}
@@ -2201,7 +2201,7 @@ function App() {
                   D: {cursorD !== null ? formatValue(getActiveChannelYFromRatio(cursorD), activeChannel.unit) : '未选择'}
                 </span>
                 {cursorC !== null && cursorD !== null && (
-                  <span className="cursor-delta">
+                  <span className="cursor-delta" style={{ width: '100%' }}>
                     ΔY: {formatValue(
                       (getActiveChannelYFromRatio(cursorD) ?? 0) - (getActiveChannelYFromRatio(cursorC) ?? 0),
                       activeChannel.unit
@@ -2223,17 +2223,22 @@ function App() {
                 <span className="cursor-a">
                   F: {cursorF !== null ? formatValue(getActiveChannelYFromRatio(cursorF), activeChannel.unit) : '未选择'}
                 </span>
-                <span className="cursor-b">
+                <span className="cursor-b" style={{ width: '100%' }}>
                   G: {cursorG !== null ? cursorG.toFixed(6) : '未选择'}
                 </span>
                 <span className="cursor-b">
                   H: {cursorH !== null ? formatValue(getActiveChannelYFromRatio(cursorH), activeChannel.unit) : '未选择'}
                 </span>
                 {cursorE !== null && cursorG !== null && (
-                  <span className="cursor-delta">{formatDeltaX(cursorG - cursorE)}</span>
+                  <span className="cursor-delta" style={{ width: '100%' }}>
+                    {formatDeltaX(cursorG - cursorE)}
+                    {Math.abs(cursorG - cursorE) > 1e-12 && (
+                      <>  1/ΔX = {(1 / Math.abs(cursorG - cursorE)).toFixed(3)} Hz</>
+                    )}
+                  </span>
                 )}
                 {cursorF !== null && cursorH !== null && (
-                  <span className="cursor-delta">
+                  <span className="cursor-delta" style={{ width: '100%' }}>
                     ΔY: {formatValue(
                       (getActiveChannelYFromRatio(cursorH) ?? 0) - (getActiveChannelYFromRatio(cursorF) ?? 0),
                       activeChannel.unit
