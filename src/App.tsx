@@ -2106,18 +2106,20 @@ function App() {
                           {ch.customName ? `(${ch.customName})` : <span className="custom-name-placeholder">(Name)</span>}
                         </span>
                       )}
-                      <button
-                        type="button"
-                        className={`channel-invert-btn ${ch.inverted ? 'active' : ''}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleChannelInvert(ch.id);
-                        }}
-                        title={ch.inverted ? '取消反相' : '通道反相'}
-                      >
-                        R
-                      </button>
-                      <span className="channel-unit">[{ch.unit}]</span>
+                      <span className="channel-right-group">
+                        <button
+                          type="button"
+                          className={`channel-invert-btn ${ch.inverted ? 'active' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleChannelInvert(ch.id);
+                          }}
+                          title={ch.inverted ? '取消反相' : '通道反相'}
+                        >
+                          R
+                        </button>
+                        <span className="channel-unit">[{ch.unit}]</span>
+                      </span>
                     </div>
                   </div>
                 </Fragment>
