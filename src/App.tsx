@@ -170,6 +170,14 @@ function App() {
       return [];
     }
   });
+  const [lockedY, setLockedY] = useState<Record<string, { yOffset: number; yZoom: number }>>(() => {
+    try {
+      const raw = localStorage.getItem('oscilloscope-sort-lock-y');
+      return raw ? (JSON.parse(raw) as Record<string, { yOffset: number; yZoom: number }>) : {};
+    } catch {
+      return {};
+    }
+  });
   const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
 
@@ -233,11 +241,12 @@ function App() {
     }
   };
 
-  /** 如果开启了序列锁定，且新文件通道与锁定顺序完全匹配，则按锁定顺序重排 */
+  /** 如果开启了序列锁定，且新文件通道与锁定顺序完全匹配，则按锁定顺序重排并恢复 Y 轴视图 */
   function reorderChannelsByLock(
     initialized: Channel[],
     lockEnabled: boolean,
-    order: string[]
+    order: string[],
+    ySettings: Record<string, { yOffset: number; yZoom: number }>
   ): Channel[] {
     if (!lockEnabled || order.length === 0) return initialized;
     if (initialized.length !== order.length) return initialized;
@@ -251,7 +260,11 @@ function App() {
       return initialized;
     }
     const channelMap = new Map(initialized.map((ch) => [ch.name, ch]));
-    return order.map((name) => channelMap.get(name)!);
+    return order.map((name) => {
+      const ch = channelMap.get(name)!;
+      const saved = ySettings[name];
+      return saved ? { ...ch, yOffset: saved.yOffset, yZoom: saved.yZoom } : ch;
+    });
   }
 
   const toggleSortLock = () => {
@@ -259,9 +272,20 @@ function App() {
       const next = !prev;
       if (next && channels.length > 0) {
         setLockedOrder(channels.map((ch) => ch.name));
+        setLockedY(
+          Object.fromEntries(
+            channels.map((ch) => [ch.name, { yOffset: ch.yOffset, yZoom: ch.yZoom }])
+          )
+        );
       }
       return next;
     });
+  };
+
+  /** 在序列锁定开启时同步某个通道的 Y 轴视图 */
+  const updateLockedY = (name: string, yOffset: number, yZoom: number) => {
+    if (!sortLockEnabled) return;
+    setLockedY((prev) => ({ ...prev, [name]: { yOffset, yZoom } }));
   };
 
   // 加载 CSV 后重置视图
@@ -282,7 +306,7 @@ function App() {
         yOffset: 0,
         yZoom: 1,
       }));
-      initializedChannels = reorderChannelsByLock(initializedChannels, sortLockEnabled, lockedOrder);
+      initializedChannels = reorderChannelsByLock(initializedChannels, sortLockEnabled, lockedOrder, lockedY);
       setData(parsed);
       setChannels(initializedChannels);
       setZoomX(1);
@@ -360,15 +384,16 @@ function App() {
     }
   }, [testTemp, testVoltage, testLocation, testDate, currentFilename]);
 
-  // 持久化通道序列锁定状态与锁定顺序
+  // 持久化通道序列锁定状态、锁定顺序与 Y 轴视图
   useEffect(() => {
     try {
       localStorage.setItem('oscilloscope-sort-lock-enabled', String(sortLockEnabled));
       localStorage.setItem('oscilloscope-sort-lock-order', JSON.stringify(lockedOrder));
+      localStorage.setItem('oscilloscope-sort-lock-y', JSON.stringify(lockedY));
     } catch {
       // 存储失败不影响使用
     }
-  }, [sortLockEnabled, lockedOrder]);
+  }, [sortLockEnabled, lockedOrder, lockedY]);
 
   const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -1000,17 +1025,18 @@ function App() {
         setChannels((prev) => {
           const idx = prev.findIndex((c) => c.id === draggingChannelId);
           if (idx < 0) return prev;
+          const ch = prev[idx];
           const bounds = getChannelYOffsetBounds(
-            prev[idx],
+            ch,
             idx,
             prev.length,
             dims.plotHeight,
             plotMargin
           );
-          return prev.map((ch) =>
-            ch.id === draggingChannelId
-              ? { ...ch, yOffset: clamp(ch.yOffset + dy, bounds.min, bounds.max) }
-              : ch
+          const nextOffset = clamp(ch.yOffset + dy, bounds.min, bounds.max);
+          updateLockedY(ch.name, nextOffset, ch.yZoom);
+          return prev.map((c) =>
+            c.id === draggingChannelId ? { ...c, yOffset: nextOffset } : c
           );
         });
       }
@@ -1143,9 +1169,12 @@ function App() {
       setSelectedChannelId(hovered);
       if (zoomYMode && alreadySelected) {
         setChannels((prev) =>
-          prev.map((ch) =>
-            ch.id === hovered ? { ...ch, yZoom: clamp(ch.yZoom * 2, 0.25, 20) } : ch
-          )
+          prev.map((ch) => {
+            if (ch.id !== hovered) return ch;
+            const nextZoom = clamp(ch.yZoom * 2, 0.25, 20);
+            updateLockedY(ch.name, ch.yOffset, nextZoom);
+            return { ...ch, yZoom: nextZoom };
+          })
         );
       }
     }
@@ -1187,9 +1216,12 @@ function App() {
     event.preventDefault();
     if (zoomYMode && hoveredChannelId) {
       setChannels((prev) =>
-        prev.map((ch) =>
-          ch.id === hoveredChannelId ? { ...ch, yZoom: clamp(ch.yZoom * 0.5, 0.25, 20) } : ch
-        )
+        prev.map((ch) => {
+          if (ch.id !== hoveredChannelId) return ch;
+          const nextZoom = clamp(ch.yZoom * 0.5, 0.25, 20);
+          updateLockedY(ch.name, ch.yOffset, nextZoom);
+          return { ...ch, yZoom: nextZoom };
+        })
       );
     }
   };
