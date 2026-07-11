@@ -2156,7 +2156,12 @@ function App() {
                 <span className="cursor-a">A: {cursorA !== null ? cursorA.toFixed(6) : '未选择'}</span>
                 <span className="cursor-b">B: {cursorB !== null ? cursorB.toFixed(6) : '未选择'}</span>
                 {cursorA !== null && cursorB !== null && (
-                  <span className="cursor-delta">{formatDeltaT(cursorB - cursorA)}</span>
+                  <span className="cursor-delta">
+                    {formatDeltaT(cursorB - cursorA)}
+                    {Math.abs(cursorB - cursorA) > 1e-12 && (
+                      <> 1/ΔT = {(1 / Math.abs(cursorB - cursorA)).toFixed(3)} Hz</>
+                    )}
+                  </span>
                 )}
               </div>
               {cursorValues.length > 0 && (
