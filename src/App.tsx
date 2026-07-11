@@ -639,8 +639,18 @@ function App() {
     const text = formatDeltaT(cursorB - cursorA);
     const textWidth = measureLabelText(text);
     const fontSize = 12;
-    const textLeft = labelX - textWidth / 2;
-    const textRight = labelX + textWidth / 2;
+    const gap = Math.abs(screenXB - screenXA);
+    const padding = 6;
+
+    let textLeft: number;
+    let textRight: number;
+    if (gap < textWidth + padding * 2) {
+      textLeft = Math.max(screenXA, screenXB) + padding;
+      textRight = textLeft + textWidth;
+    } else {
+      textLeft = labelX - textWidth / 2;
+      textRight = labelX + textWidth / 2;
+    }
     const textTop = labelY - 5 - fontSize;
     const textBottom = labelY - 5;
     return (
@@ -835,8 +845,18 @@ function App() {
     const text = formatDeltaX(cursorG - cursorE);
     const textWidth = measureLabelText(text);
     const fontSize = 12;
-    const textLeft = labelX - textWidth / 2;
-    const textRight = labelX + textWidth / 2;
+    const gap = Math.abs(screenXE - screenXG);
+    const padding = 6;
+
+    let textLeft: number;
+    let textRight: number;
+    if (gap < textWidth + padding * 2) {
+      textLeft = Math.max(screenXE, screenXG) + padding;
+      textRight = textLeft + textWidth;
+    } else {
+      textLeft = labelX - textWidth / 2;
+      textRight = labelX + textWidth / 2;
+    }
     const textTop = labelY - 5 - fontSize;
     const textBottom = labelY - 5;
     return (
@@ -2648,15 +2668,38 @@ function drawMeasureLabel(
   if (cursorA === null || cursorB === null) return;
   const pos = getMeasureAnnotationPosition(cursorA, cursorB, measureLabelY, margin, plotWidth, plotHeight, minX, scaleX, panX);
   if (!pos) return;
-  const { labelX, labelY } = pos;
+  const { labelX, labelY, screenXA, screenXB } = pos;
   if (labelX < margin.left - 80 || labelX > margin.left + plotWidth + 80) return;
 
   const text = formatDeltaT(cursorB - cursorA);
-  ctx.fillStyle = '#e5e7eb';
   ctx.font = '12px Inter, ui-sans-serif, system-ui';
-  ctx.textAlign = 'center';
+  const textWidth = ctx.measureText(text).width;
+  const gap = Math.abs(screenXB - screenXA);
+  const padding = 6;
+  const fontSize = 12;
+
+  // 当 A/B 间距不足以容纳文本时，把文本固定放到右侧光标右边
+  let drawX = labelX;
+  let align: CanvasTextAlign = 'center';
+  if (gap < textWidth + padding * 2) {
+    align = 'left';
+    drawX = Math.max(screenXA, screenXB) + padding;
+  }
+
+  const textTop = labelY - 5 - fontSize;
+  const textBottom = labelY - 5;
+  const bgLeft = align === 'center' ? drawX - textWidth / 2 - 2 : drawX - 2;
+  const bgTop = textTop - 2;
+  const bgWidth = textWidth + 4;
+  const bgHeight = fontSize + 4;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillRect(bgLeft, bgTop, bgWidth, bgHeight);
+
+  ctx.fillStyle = '#e5e7eb';
+  ctx.textAlign = align;
   ctx.textBaseline = 'bottom';
-  ctx.fillText(text, labelX, labelY - 5);
+  ctx.fillText(text, drawX, textBottom);
   ctx.textBaseline = 'alphabetic';
 }
 
@@ -2675,15 +2718,37 @@ function drawCrossMeasureXLabel(
   if (cursorE === null || cursorG === null) return;
   const pos = getMeasureAnnotationPosition(cursorE, cursorG, measureLabelY, margin, plotWidth, plotHeight, minX, scaleX, panX);
   if (!pos) return;
-  const { labelX, labelY } = pos;
+  const { labelX, labelY, screenXA: screenXE, screenXB: screenXG } = pos;
   if (labelX < margin.left - 80 || labelX > margin.left + plotWidth + 80) return;
 
   const text = formatDeltaX(cursorG - cursorE);
-  ctx.fillStyle = '#e5e7eb';
   ctx.font = '12px Inter, ui-sans-serif, system-ui';
-  ctx.textAlign = 'center';
+  const textWidth = ctx.measureText(text).width;
+  const gap = Math.abs(screenXE - screenXG);
+  const padding = 6;
+  const fontSize = 12;
+
+  let drawX = labelX;
+  let align: CanvasTextAlign = 'center';
+  if (gap < textWidth + padding * 2) {
+    align = 'left';
+    drawX = Math.max(screenXE, screenXG) + padding;
+  }
+
+  const textTop = labelY - 5 - fontSize;
+  const textBottom = labelY - 5;
+  const bgLeft = align === 'center' ? drawX - textWidth / 2 - 2 : drawX - 2;
+  const bgTop = textTop - 2;
+  const bgWidth = textWidth + 4;
+  const bgHeight = fontSize + 4;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillRect(bgLeft, bgTop, bgWidth, bgHeight);
+
+  ctx.fillStyle = '#e5e7eb';
+  ctx.textAlign = align;
   ctx.textBaseline = 'bottom';
-  ctx.fillText(text, labelX, labelY - 5);
+  ctx.fillText(text, drawX, textBottom);
   ctx.textBaseline = 'alphabetic';
 }
 
