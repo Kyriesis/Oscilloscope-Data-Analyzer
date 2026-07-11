@@ -308,6 +308,21 @@ function App() {
         yZoom: 1,
       }));
       initializedChannels = reorderChannelsByLock(initializedChannels, sortLockEnabled, lockedOrder, lockedY);
+
+      // 如果序列锁定开启，但新文件通道与锁定顺序不完全匹配，则自动关闭锁定，避免旧记忆被覆盖
+      if (sortLockEnabled && lockedOrder.length > 0) {
+        const initializedNames = new Set(initializedChannels.map((ch) => ch.name));
+        const lockNames = new Set(lockedOrder);
+        const matches =
+          initializedChannels.length === lockedOrder.length &&
+          initializedNames.size === lockedOrder.length &&
+          lockNames.size === lockedOrder.length &&
+          lockedOrder.every((name) => initializedNames.has(name));
+        if (!matches) {
+          setSortLockEnabled(false);
+        }
+      }
+
       setData(parsed);
       setChannels(initializedChannels);
       setZoomX(1);
