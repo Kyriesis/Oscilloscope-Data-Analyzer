@@ -1997,21 +1997,42 @@ function App() {
                   </section>
                   <section>
                     <h3>版本说明</h3>
-                    <p>v0.0.1</p>
+                    <p>v0.0.2</p>
                     <p>基于 Vite + React + TypeScript 构建，无外部图表库。</p>
+                  </section>
+                  <section>
+                    <h3>功能特性</h3>
+                    <ul>
+                      <li>上传或拖拽 Yokogawa Xviewer CSV 波形文件，自动解析多通道数据与真实时间轴。</li>
+                      <li>深色示波器界面，彩色波形、网格、左侧 Y 轴标识。</li>
+                      <li>右侧通道面板：显示/隐藏、拖拽排序、双击自定义名称、方形 <strong>R</strong> 按钮反相。</li>
+                      <li><strong>序列锁定</strong>：开启后记忆通道排序、Y 偏移、Y 缩放、反相状态及自定义名称；加载相同通道组的新文件时自动沿用，通道不匹配时自动关闭锁定。</li>
+                      <li>画布左上角显示温度/电压信息（输入为空时隐藏）；单通道模式显示对应的 <strong>[V/div]</strong>。</li>
+                      <li>画布右上角显示当前 CSV 文件名。</li>
+                      <li><strong>Zoom X</strong>：滚轮以鼠标位置为中心缩放时间轴。</li>
+                      <li><strong>Zoom Y</strong>：首次点击选中通道，再次点击放大 Y（最大 32×）；右键缩小（最小 1/64）；拖动可上下平移通道。重排通道标签后自动重置 Y 偏移，避免错位。</li>
+                      <li>拖动画布平移时间轴时鼠标变为 <strong>grabbing</strong> 抓取手。</li>
+                      <li>光标测量：纵向 A/B、横向 C/D、纵横 EF/GH；支持 Ctrl+左/右键放置、拖动测量线与标注。</li>
+                      <li>测量标注智能避让：间距不足时自动移到右侧，带半透明黑色背景框与下方延伸虚线；测量线统一变细到 0.6，纵横十字线保持 0.8。</li>
+                      <li>测量面板信息丰富：纵向显示 ΔT 与 1/ΔT 频率；横向/纵横标签分多行清晰展示通道名与测量值。</li>
+                    </ul>
                   </section>
                   <section>
                     <h3>操作指南</h3>
                     <ul>
                       <li>上传或拖拽 Yokogawa CSV 文件到左侧文件区或波形显示区。</li>
-                      <li>左侧通道列表可勾选显示/隐藏、拖动排序、双击自定义名称。</li>
-                      <li><strong>Zoom X</strong>：激活后滚轮缩放 X 轴，以鼠标位置为中心。</li>
-                      <li><strong>Zoom Y</strong>：激活后点击通道首次选中，再次点击放大 Y；悬停曲线后拖动可上下移动通道。</li>
-                      <li><strong>纵向光标</strong>：左键设置 A，右键设置 B，拖动虚线或标注。</li>
-                      <li><strong>横向光标</strong>：选择激活通道后，左键设置 C，右键设置 D，拖动横线或标注。</li>
-                      <li><strong>纵横光标</strong>：选择激活通道后，左键设置十字线 EF，右键设置 GH；拖动单线或交点移动十字线。</li>
-                      <li><strong>清除光标</strong>：清除当前测量模式下的光标和标注。</li>
-                      <li><strong>重置视图</strong>：恢复所有缩放、平移和测量状态。</li>
+                      <li>在右侧通道面板勾选显示/隐藏通道；拖动通道标签调整顺序；双击通道名区域自定义名称（CH1/CH2 等固定名不可改）。</li>
+                      <li>点击通道标签右侧的 <strong>R</strong> 按钮可切换该通道反相，波形与测量值会同步取反。</li>
+                      <li>点击 <strong>🔒 序列锁定</strong> 可记忆当前通道排序、Y 偏移、Y 缩放、反相与自定义名；加载不同通道的新文件时会自动关闭锁定。</li>
+                      <li><strong>Zoom X</strong>：激活后用鼠标滚轮缩放时间轴。</li>
+                      <li><strong>Zoom Y</strong>：激活后点击某条通道首次仅选中，再次点击放大一倍；右键单击缩小一倍；按住左键上下拖动可平移该通道 Y 位置。</li>
+                      <li>在任意模式下按住鼠标左键拖动画布可平移时间轴。</li>
+                      <li>点击通道曲线可在左侧 Y 轴显示该通道的固定名称、自定义名和 0 位标识；测量/Zoom Y 模式下点击曲线可激活对应通道。</li>
+                      <li><strong>纵向光标</strong>：激活后按住 <strong>Ctrl+左键</strong> 设置 A，<strong>Ctrl+右键</strong> 设置 B；可拖动虚线或标注调整位置。</li>
+                      <li><strong>横向光标</strong>：先点击通道曲线激活目标通道，然后 <strong>Ctrl+左键</strong> 设置 C，<strong>Ctrl+右键</strong> 设置 D。</li>
+                      <li><strong>纵横光标</strong>：先点击通道曲线激活目标通道，然后 <strong>Ctrl+左键</strong> 设置十字线 EF，<strong>Ctrl+右键</strong> 设置十字线 GH；可拖动单线或交点移动十字线。</li>
+                      <li><strong>清除光标</strong>：清除当前测量模式下的光标与标注。</li>
+                      <li><strong>重置视图</strong>：恢复当前文件的缩放、平移与测量状态，不影响序列锁定的记忆。</li>
                     </ul>
                   </section>
                 </div>
