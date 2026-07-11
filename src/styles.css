@@ -509,7 +509,7 @@ input[type='file']::file-selector-button:hover {
 .channel-right-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   margin-left: auto;
 }
 

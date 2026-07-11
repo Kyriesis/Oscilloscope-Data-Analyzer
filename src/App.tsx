@@ -2107,6 +2107,7 @@ function App() {
                         </span>
                       )}
                       <span className="channel-right-group">
+                        <span className="channel-unit">[{ch.unit}]</span>
                         <button
                           type="button"
                           className={`channel-invert-btn ${ch.inverted ? 'active' : ''}`}
@@ -2118,7 +2119,6 @@ function App() {
                         >
                           R
                         </button>
-                        <span className="channel-unit">[{ch.unit}]</span>
                       </span>
                     </div>
                   </div>
