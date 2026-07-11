@@ -1651,7 +1651,7 @@ function App() {
         ? channels.find((ch) => ch.id === selectedChannelId && ch.visible) ?? null
         : activeChannel
       : null;
-    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX, testTemp, testVoltage, singleChannelMode, overlayChannel);
+    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX, testTemp, testVoltage, singleChannelMode, overlayChannel, totalChannels);
   }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, hoveredChannelId, draggingChannelId, selectedChannelId, cursorMode, cursorA, cursorB, hoveredCursor, draggingCursor, measureLabelY, draggingMeasureLabel, hoveredMeasureLabel, horizontalCursorMode, cursorC, cursorD, hoveredHorizontalCursor, draggingHorizontalCursor, horizontalMeasureLabelX, draggingHorizontalMeasureLabel, hoveredHorizontalMeasureLabel, crossCursorMode, cursorE, cursorF, cursorG, cursorH, hoveredCrossCursor, draggingCrossCursor, crossMeasureLabelY, crossMeasureLabelX, draggingCrossMeasureLabelX, draggingCrossMeasureLabelY, hoveredCrossMeasureLabelX, hoveredCrossMeasureLabelY, activeChannel, testTemp, testVoltage]);
 
   // 计算每个通道在光标处的值
@@ -2626,7 +2626,8 @@ function drawOverlay(
   testTemp: string,
   testVoltage: string,
   singleChannelMode: boolean,
-  overlayChannel: Channel | null
+  overlayChannel: Channel | null,
+  total: number
 ) {
   if (!data) return;
 
@@ -2652,7 +2653,8 @@ function drawOverlay(
   // Zoom Y / 横向 / 纵横测量模式下，在坐标区域左上角显示当前选中通道的 Y 轴每格电压
   if (singleChannelMode && overlayChannel) {
     const ySpan = overlayChannel.maxY - overlayChannel.minY || 1;
-    const voltsPerDiv = ySpan / (overlayChannel.yZoom * 7.5);
+    // 单通道模式下左侧 Y 轴刻度按整个绘图区高度（10 格）显示，因此 V/div 需乘上通道总数
+    const voltsPerDiv = (total * ySpan) / (overlayChannel.yZoom * 7.5);
     ctx.textAlign = 'left';
     ctx.fillStyle = overlayChannel.color;
     ctx.fillText(
