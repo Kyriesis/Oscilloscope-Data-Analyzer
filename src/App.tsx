@@ -2217,33 +2217,39 @@ function App() {
               <h2>纵横光标测量</h2>
               <div className="cursor-info">
                 <div style={{ width: '100%', color: activeChannel.color }}>通道: {activeChannel.name}</div>
-                <span className="cursor-a">
-                  E: {cursorE !== null ? cursorE.toFixed(6) : '未选择'}
-                </span>
-                <span className="cursor-a">
-                  F: {cursorF !== null ? formatValue(getActiveChannelYFromRatio(cursorF), activeChannel.unit) : '未选择'}
-                </span>
-                <span className="cursor-b">
-                  G: {cursorG !== null ? cursorG.toFixed(6) : '未选择'}
-                </span>
-                <span className="cursor-b">
-                  H: {cursorH !== null ? formatValue(getActiveChannelYFromRatio(cursorH), activeChannel.unit) : '未选择'}
-                </span>
-                {cursorE !== null && cursorG !== null && (
-                  <span className="cursor-delta">{formatDeltaX(cursorG - cursorE)}</span>
-                )}
-                {cursorF !== null && cursorH !== null && (
-                  <span className="cursor-delta">
-                    ΔY: {formatValue(
-                      (getActiveChannelYFromRatio(cursorH) ?? 0) - (getActiveChannelYFromRatio(cursorF) ?? 0),
-                      activeChannel.unit
-                    )}
+                <div style={{ width: '100%', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <span className="cursor-a">
+                    E: {cursorE !== null ? cursorE.toFixed(6) : '未选择'}
                   </span>
-                )}
+                  <span className="cursor-a">
+                    F: {cursorF !== null ? formatValue(getActiveChannelYFromRatio(cursorF), activeChannel.unit) : '未选择'}
+                  </span>
+                </div>
+                <div style={{ width: '100%', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <span className="cursor-b">
+                    G: {cursorG !== null ? cursorG.toFixed(6) : '未选择'}
+                  </span>
+                  <span className="cursor-b">
+                    H: {cursorH !== null ? formatValue(getActiveChannelYFromRatio(cursorH), activeChannel.unit) : '未选择'}
+                  </span>
+                </div>
+                <div style={{ width: '100%', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  {cursorE !== null && cursorG !== null && (
+                    <span className="cursor-delta">{formatDeltaX(cursorG - cursorE)}</span>
+                  )}
+                  {cursorF !== null && cursorH !== null && (
+                    <span className="cursor-delta">
+                      ΔY: {formatValue(
+                        (getActiveChannelYFromRatio(cursorH) ?? 0) - (getActiveChannelYFromRatio(cursorF) ?? 0),
+                        activeChannel.unit
+                      )}
+                    </span>
+                  )}
+                </div>
                 {cursorE !== null && cursorG !== null && Math.abs(cursorG - cursorE) > 1e-12 && (
-                  <span className="cursor-delta" style={{ width: '100%' }}>
+                  <div className="cursor-delta" style={{ width: '100%' }}>
                     1/ΔX = {(1 / Math.abs(cursorG - cursorE)).toFixed(3)} Hz
-                  </span>
+                  </div>
                 )}
               </div>
             </div>
