@@ -882,6 +882,7 @@ function App() {
     if (zoomYMode) {
       if (hovered) {
         setDraggingChannelId(hovered);
+        setSelectedChannelId(hovered);
         channelDragStartRef.current = { y: event.clientY, channelId: hovered };
         setHoveredChannelId(hovered);
         return;
