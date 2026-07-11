@@ -1677,7 +1677,7 @@ function App() {
     if (cursorMode) {
       drawCursorLine(ctx, cursorA, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
       drawCursorLine(ctx, cursorB, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
-      drawMeasureLine(ctx, cursorA, cursorB, measureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
+      drawMeasureLine(ctx, cursorA, cursorB, measureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, cursorA !== null && cursorB !== null ? formatDeltaT(cursorB - cursorA) : undefined);
     }
 
     // 横向光标模式下绘制 C/D 虚线与测量虚线
@@ -1701,7 +1701,7 @@ function App() {
       drawCursorLine(ctx, cursorG, '#64d0ff', plotMargin, plotHeight, minX, scaleX, panX);
       drawHorizontalCursorLine(ctx, cursorF, '#ff8a64', plotMargin, plotWidth, plotHeight, screenYF);
       drawHorizontalCursorLine(ctx, cursorH, '#64d0ff', plotMargin, plotWidth, plotHeight, screenYH);
-      drawMeasureLine(ctx, cursorE, cursorG, crossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
+      drawMeasureLine(ctx, cursorE, cursorG, crossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, cursorE !== null && cursorG !== null ? formatDeltaX(cursorG - cursorE) : undefined);
       drawCrossMeasureXLabel(ctx, cursorE, cursorG, crossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
       drawHorizontalMeasureAnnotation(ctx, dataYF, dataYH, crossMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYF, screenYH);
     }
@@ -2491,7 +2491,7 @@ function drawCursorLine(
   const screenX = margin.left + (cursorX - minX) * scaleX + panX;
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 0.6;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(screenX, margin.top);
@@ -2536,7 +2536,7 @@ function drawHorizontalCursorLine(
   if (screenY < margin.top || screenY > margin.top + plotHeight) return;
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = 0.6;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(margin.left, screenY);
@@ -2585,7 +2585,7 @@ function drawHorizontalMeasureAnnotation(
 
   // 两光标之间的竖直虚线
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-  ctx.lineWidth = 0.8;
+  ctx.lineWidth = 0.6;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(labelX, clamp(screenYC, margin.top, margin.top + plotHeight));
@@ -2596,11 +2596,22 @@ function drawHorizontalMeasureAnnotation(
   // 虚线右侧的 ΔY 值
   const deltaY = dataYD - dataYC;
   const text = `ΔY: ${formatValue(deltaY, channel.unit)}`;
-  ctx.fillStyle = '#e5e7eb';
   ctx.font = '12px Inter, ui-sans-serif, system-ui';
+  const textWidth = ctx.measureText(text).width;
+  const fontSize = 12;
+  const textX = labelX + 6;
+  const bgLeft = textX - 2;
+  const bgTop = labelY - fontSize / 2 - 2;
+  const bgWidth = textWidth + 4;
+  const bgHeight = fontSize + 4;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillRect(bgLeft, bgTop, bgWidth, bgHeight);
+
+  ctx.fillStyle = '#e5e7eb';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, labelX + 6, labelY);
+  ctx.fillText(text, textX, labelY);
   ctx.textBaseline = 'alphabetic';
 }
 
@@ -2633,7 +2644,8 @@ function drawMeasureLine(
   plotHeight: number,
   minX: number,
   scaleX: number,
-  panX: number
+  panX: number,
+  labelText?: string
 ) {
   const pos = getMeasureAnnotationPosition(cursorA, cursorB, measureLabelY, margin, plotWidth, plotHeight, minX, scaleX, panX);
   if (!pos) return;
@@ -2643,12 +2655,29 @@ function drawMeasureLine(
     return;
   }
 
+  const rightX = Math.max(screenXA, screenXB);
+  const leftX = Math.min(screenXA, screenXB);
+
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-  ctx.lineWidth = 0.8;
+  ctx.lineWidth = 0.6;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(clamp(screenXA, margin.left, margin.left + plotWidth), labelY);
   ctx.lineTo(clamp(screenXB, margin.left, margin.left + plotWidth), labelY);
+
+  // 当标注被挤到右侧时，把虚线延伸到标注下方
+  if (labelText) {
+    ctx.font = '12px Inter, ui-sans-serif, system-ui';
+    const textWidth = ctx.measureText(labelText).width;
+    const gap = Math.abs(screenXB - screenXA);
+    const padding = 6;
+    if (gap < textWidth + padding * 2) {
+      const drawX = rightX + padding;
+      const lineEnd = drawX + textWidth + padding;
+      ctx.lineTo(lineEnd, labelY);
+    }
+  }
+
   ctx.stroke();
   ctx.setLineDash([]);
 }
