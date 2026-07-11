@@ -528,7 +528,7 @@ input[type='file']::file-selector-button:hover {
   align-items: center;
   justify-content: center;
   padding: 0;
-  margin-left: 8px;
+  margin-right: 8px;
 }
 
 .channel-invert-btn:hover {

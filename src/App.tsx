@@ -171,10 +171,10 @@ function App() {
       return [];
     }
   });
-  const [lockedY, setLockedY] = useState<Record<string, { yOffset: number; yZoom: number; inverted?: boolean }>>(() => {
+  const [lockedY, setLockedY] = useState<Record<string, { yOffset: number; yZoom: number; inverted?: boolean; customName?: string }>>(() => {
     try {
       const raw = localStorage.getItem('oscilloscope-sort-lock-y');
-      return raw ? (JSON.parse(raw) as Record<string, { yOffset: number; yZoom: number; inverted?: boolean }>) : {};
+      return raw ? (JSON.parse(raw) as Record<string, { yOffset: number; yZoom: number; inverted?: boolean; customName?: string }>) : {};
     } catch {
       return {};
     }
@@ -248,7 +248,7 @@ function App() {
     initialized: Channel[],
     lockEnabled: boolean,
     order: string[],
-    ySettings: Record<string, { yOffset: number; yZoom: number; inverted?: boolean }>
+    ySettings: Record<string, { yOffset: number; yZoom: number; inverted?: boolean; customName?: string }>
   ): Channel[] {
     if (!lockEnabled || order.length === 0) return initialized;
     if (initialized.length !== order.length) return initialized;
@@ -266,7 +266,13 @@ function App() {
       const ch = channelMap.get(name)!;
       const saved = ySettings[name];
       return saved
-        ? { ...ch, yOffset: saved.yOffset, yZoom: saved.yZoom, inverted: saved.inverted ?? false }
+        ? {
+            ...ch,
+            yOffset: saved.yOffset,
+            yZoom: saved.yZoom,
+            inverted: saved.inverted ?? false,
+            customName: saved.customName ?? ch.customName,
+          }
         : ch;
     });
   }
@@ -278,7 +284,7 @@ function App() {
         setLockedOrder(channels.map((ch) => ch.name));
         setLockedY(
           Object.fromEntries(
-            channels.map((ch) => [ch.name, { yOffset: ch.yOffset, yZoom: ch.yZoom, inverted: ch.inverted ?? false }])
+            channels.map((ch) => [ch.name, { yOffset: ch.yOffset, yZoom: ch.yZoom, inverted: ch.inverted ?? false, customName: ch.customName }])
           )
         );
       }
@@ -291,7 +297,12 @@ function App() {
     if (!sortLockEnabled) return;
     setLockedY((prev) => ({
       ...prev,
-      [name]: { yOffset, yZoom, inverted: prev[name]?.inverted ?? false },
+      [name]: {
+        yOffset,
+        yZoom,
+        inverted: prev[name]?.inverted ?? false,
+        customName: prev[name]?.customName ?? '',
+      },
     }));
   };
 
@@ -1279,6 +1290,7 @@ function App() {
           yOffset: ch.yOffset,
           yZoom: ch.yZoom,
           inverted: nextInverted,
+          customName: ch.customName,
         },
       }));
     }
@@ -1295,6 +1307,20 @@ function App() {
     setChannels((prev) =>
       prev.map((ch) => (ch.id === editingChannelId ? { ...ch, customName: trimmed } : ch))
     );
+    if (sortLockEnabled) {
+      const ch = channels.find((c) => c.id === editingChannelId);
+      if (ch) {
+        setLockedY((prev) => ({
+          ...prev,
+          [ch.name]: {
+            yOffset: ch.yOffset,
+            yZoom: ch.yZoom,
+            inverted: ch.inverted ?? false,
+            customName: trimmed,
+          },
+        }));
+      }
+    }
     setEditingChannelId(null);
     setEditingName('');
   };
@@ -1356,7 +1382,7 @@ function App() {
           setLockedOrder(reset.map((ch) => ch.name));
           setLockedY(
             Object.fromEntries(
-              reset.map((ch) => [ch.name, { yOffset: 0, yZoom: ch.yZoom, inverted: ch.inverted ?? false }])
+              reset.map((ch) => [ch.name, { yOffset: 0, yZoom: ch.yZoom, inverted: ch.inverted ?? false, customName: ch.customName }])
             )
           );
         }
