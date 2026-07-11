@@ -1735,12 +1735,14 @@ function App() {
             <canvas
               ref={canvasRef}
               style={{
-                cursor: crossCursorMode && (
-                    hoveredCrossMeasureLabelX ||
-                    hoveredCrossMeasureLabelY ||
-                    draggingCrossMeasureLabelX ||
-                    draggingCrossMeasureLabelY
-                  )
+                cursor: dragging
+                  ? 'grabbing'
+                  : crossCursorMode && (
+                      hoveredCrossMeasureLabelX ||
+                      hoveredCrossMeasureLabelY ||
+                      draggingCrossMeasureLabelX ||
+                      draggingCrossMeasureLabelY
+                    )
                   ? 'pointer'
                   : crossCursorMode && hoveredCrossCursor
                   ? 'pointer'
