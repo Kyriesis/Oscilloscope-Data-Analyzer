@@ -1297,9 +1297,53 @@ function App() {
         const next = [...channels];
         const [moved] = next.splice(fromIndex, 1);
         next.splice(targetIndex, 0, moved);
-        setChannels(next);
-        if (sortLockEnabled) {
-          setLockedOrder(next.map((ch) => ch.name));
+
+        // Zoom Y 模式下重排时保持各通道 0 位线的屏幕绝对位置不变，避免错位/出界
+        const dims = getPlotDimensions(viewRef.current, plotMargin);
+        if (dims) {
+          const total = next.length;
+          const getZeroYWithoutOffset = (ch: Channel, idx: number) => {
+            const bandHeight = dims.plotHeight / total;
+            const bandTop = plotMargin.top + bandHeight * idx;
+            const bandCenterY = bandTop + bandHeight * 0.5;
+            const ySpan = ch.maxY - ch.minY || 1;
+            const yScale = ((bandHeight * 0.75) / ySpan) * ch.yZoom;
+            const yMid = (ch.minY + ch.maxY) / 2;
+            return bandCenterY + yMid * yScale;
+          };
+          const absZeroMap = new Map(
+            channels.map((ch, idx) => [ch.id, getZeroYWithoutOffset(ch, idx) + ch.yOffset])
+          );
+          const adjusted = next.map((ch, idx) => {
+            const zeroYWithoutOffset = getZeroYWithoutOffset(ch, idx);
+            const bounds = getChannelYOffsetBounds(
+              ch,
+              idx,
+              total,
+              dims.plotHeight,
+              plotMargin
+            );
+            const newOffset = clamp(
+              (absZeroMap.get(ch.id) ?? zeroYWithoutOffset) - zeroYWithoutOffset,
+              bounds.min,
+              bounds.max
+            );
+            return { ...ch, yOffset: newOffset };
+          });
+          setChannels(adjusted);
+          if (sortLockEnabled) {
+            setLockedOrder(adjusted.map((ch) => ch.name));
+            setLockedY(
+              Object.fromEntries(
+                adjusted.map((ch) => [ch.name, { yOffset: ch.yOffset, yZoom: ch.yZoom }])
+              )
+            );
+          }
+        } else {
+          setChannels(next);
+          if (sortLockEnabled) {
+            setLockedOrder(next.map((ch) => ch.name));
+          }
         }
       }
     }
