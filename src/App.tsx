@@ -189,6 +189,7 @@ function App() {
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const pointerMovedRef = useRef(false);
   const draggedChannelRef = useRef<string | null>(null);
+  const zoomYJustSelectedRef = useRef<string | null>(null);
   const viewRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const importConditionsRef = useRef<HTMLInputElement | null>(null);
@@ -907,7 +908,10 @@ function App() {
     if (zoomYMode) {
       if (hovered) {
         setDraggingChannelId(hovered);
-        setSelectedChannelId(hovered);
+        if (hovered !== selectedChannelId) {
+          setSelectedChannelId(hovered);
+          zoomYJustSelectedRef.current = hovered;
+        }
         channelDragStartRef.current = { y: event.clientY, channelId: hovered };
         setHoveredChannelId(hovered);
         return;
@@ -1111,6 +1115,7 @@ function App() {
     dragStartRef.current = null;
     channelDragStartRef.current = null;
     pointerStartRef.current = null;
+    zoomYJustSelectedRef.current = null;
   };
 
   const handleCanvasClick = (event: MouseEvent<HTMLCanvasElement>) => {
@@ -1167,7 +1172,7 @@ function App() {
     if (hovered) {
       const alreadySelected = hovered === selectedChannelId;
       setSelectedChannelId(hovered);
-      if (zoomYMode && alreadySelected) {
+      if (zoomYMode && alreadySelected && !zoomYJustSelectedRef.current) {
         setChannels((prev) =>
           prev.map((ch) => {
             if (ch.id !== hovered) return ch;
@@ -1177,6 +1182,7 @@ function App() {
           })
         );
       }
+      zoomYJustSelectedRef.current = null;
     }
   };
 
@@ -2640,7 +2646,7 @@ function drawOverlay(
     ctx.fillText(parts.join('  '), 12, 20);
   }
 
-  // Zoom Y / 横向 / 纵横测量模式下，左上角显示当前选中通道的 Y 轴每格电压
+  // Zoom Y / 横向 / 纵横测量模式下，在坐标区域左上角显示当前选中通道的 Y 轴每格电压
   if (singleChannelMode && overlayChannel) {
     const ySpan = overlayChannel.maxY - overlayChannel.minY || 1;
     const voltsPerDiv = ySpan / (overlayChannel.yZoom * 7.5);
@@ -2648,8 +2654,8 @@ function drawOverlay(
     ctx.fillStyle = overlayChannel.color;
     ctx.fillText(
       formatVoltagePerDiv(voltsPerDiv, overlayChannel.unit || 'V'),
-      12,
-      tempText || voltageText ? 38 : 20
+      margin.left + 8,
+      margin.top + 16
     );
   }
 
