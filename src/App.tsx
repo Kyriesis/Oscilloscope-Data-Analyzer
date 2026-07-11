@@ -1297,9 +1297,16 @@ function App() {
         const next = [...channels];
         const [moved] = next.splice(fromIndex, 1);
         next.splice(targetIndex, 0, moved);
-        setChannels(next);
+        // 方案 A：重排后统一把所有通道 yOffset 重置为 0，避免 band 变化导致的错位/出界
+        const reset = next.map((ch) => ({ ...ch, yOffset: 0 }));
+        setChannels(reset);
         if (sortLockEnabled) {
-          setLockedOrder(next.map((ch) => ch.name));
+          setLockedOrder(reset.map((ch) => ch.name));
+          setLockedY(
+            Object.fromEntries(
+              reset.map((ch) => [ch.name, { yOffset: 0, yZoom: ch.yZoom }])
+            )
+          );
         }
       }
     }
