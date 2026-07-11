@@ -1115,7 +1115,10 @@ function App() {
     dragStartRef.current = null;
     channelDragStartRef.current = null;
     pointerStartRef.current = null;
-    zoomYJustSelectedRef.current = null;
+    // 拖动后由 click 事件不会触发，需要在这里清标记；纯点击则保留到 click 中处理
+    if (pointerMovedRef.current) {
+      zoomYJustSelectedRef.current = null;
+    }
   };
 
   const handleCanvasClick = (event: MouseEvent<HTMLCanvasElement>) => {
