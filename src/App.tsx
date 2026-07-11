@@ -171,10 +171,10 @@ function App() {
       return [];
     }
   });
-  const [lockedY, setLockedY] = useState<Record<string, { yOffset: number; yZoom: number }>>(() => {
+  const [lockedY, setLockedY] = useState<Record<string, { yOffset: number; yZoom: number; inverted?: boolean }>>(() => {
     try {
       const raw = localStorage.getItem('oscilloscope-sort-lock-y');
-      return raw ? (JSON.parse(raw) as Record<string, { yOffset: number; yZoom: number }>) : {};
+      return raw ? (JSON.parse(raw) as Record<string, { yOffset: number; yZoom: number; inverted?: boolean }>) : {};
     } catch {
       return {};
     }
@@ -248,7 +248,7 @@ function App() {
     initialized: Channel[],
     lockEnabled: boolean,
     order: string[],
-    ySettings: Record<string, { yOffset: number; yZoom: number }>
+    ySettings: Record<string, { yOffset: number; yZoom: number; inverted?: boolean }>
   ): Channel[] {
     if (!lockEnabled || order.length === 0) return initialized;
     if (initialized.length !== order.length) return initialized;
@@ -265,7 +265,9 @@ function App() {
     return order.map((name) => {
       const ch = channelMap.get(name)!;
       const saved = ySettings[name];
-      return saved ? { ...ch, yOffset: saved.yOffset, yZoom: saved.yZoom } : ch;
+      return saved
+        ? { ...ch, yOffset: saved.yOffset, yZoom: saved.yZoom, inverted: saved.inverted ?? false }
+        : ch;
     });
   }
 
@@ -276,7 +278,7 @@ function App() {
         setLockedOrder(channels.map((ch) => ch.name));
         setLockedY(
           Object.fromEntries(
-            channels.map((ch) => [ch.name, { yOffset: ch.yOffset, yZoom: ch.yZoom }])
+            channels.map((ch) => [ch.name, { yOffset: ch.yOffset, yZoom: ch.yZoom, inverted: ch.inverted ?? false }])
           )
         );
       }
@@ -287,7 +289,10 @@ function App() {
   /** 在序列锁定开启时同步某个通道的 Y 轴视图 */
   const updateLockedY = (name: string, yOffset: number, yZoom: number) => {
     if (!sortLockEnabled) return;
-    setLockedY((prev) => ({ ...prev, [name]: { yOffset, yZoom } }));
+    setLockedY((prev) => ({
+      ...prev,
+      [name]: { yOffset, yZoom, inverted: prev[name]?.inverted ?? false },
+    }));
   };
 
   // 加载 CSV 后重置视图
@@ -1261,9 +1266,22 @@ function App() {
   };
 
   const toggleChannelInvert = (id: string) => {
+    const ch = channels.find((c) => c.id === id);
+    if (!ch) return;
+    const nextInverted = !ch.inverted;
     setChannels((prev) =>
-      prev.map((ch) => (ch.id === id ? { ...ch, inverted: !ch.inverted } : ch))
+      prev.map((c) => (c.id === id ? { ...c, inverted: nextInverted } : c))
     );
+    if (sortLockEnabled) {
+      setLockedY((prev) => ({
+        ...prev,
+        [ch.name]: {
+          yOffset: ch.yOffset,
+          yZoom: ch.yZoom,
+          inverted: nextInverted,
+        },
+      }));
+    }
   };
 
   const startEditingChannelName = (id: string, currentCustomName: string) => {
@@ -1338,7 +1356,7 @@ function App() {
           setLockedOrder(reset.map((ch) => ch.name));
           setLockedY(
             Object.fromEntries(
-              reset.map((ch) => [ch.name, { yOffset: 0, yZoom: ch.yZoom }])
+              reset.map((ch) => [ch.name, { yOffset: 0, yZoom: ch.yZoom, inverted: ch.inverted ?? false }])
             )
           );
         }
