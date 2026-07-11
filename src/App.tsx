@@ -2188,7 +2188,7 @@ function App() {
             <div className="panel measure-panel">
               <h2>横向光标测量</h2>
               <div className="cursor-info">
-                <span style={{ color: activeChannel.color }}>通道: {activeChannel.name}</span>
+                <div style={{ width: '100%', color: activeChannel.color }}>通道: {activeChannel.name}</div>
                 <span className="cursor-a">
                   C: {cursorC !== null ? formatValue(getActiveChannelYFromRatio(cursorC), activeChannel.unit) : '未选择'}
                 </span>
@@ -2211,7 +2211,7 @@ function App() {
             <div className="panel measure-panel">
               <h2>纵横光标测量</h2>
               <div className="cursor-info">
-                <span style={{ color: activeChannel.color }}>通道: {activeChannel.name}</span>
+                <div style={{ width: '100%', color: activeChannel.color }}>通道: {activeChannel.name}</div>
                 <span className="cursor-a">
                   E: {cursorE !== null ? cursorE.toFixed(6) : '未选择'}
                 </span>
