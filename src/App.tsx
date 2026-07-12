@@ -195,6 +195,25 @@ function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const importConditionsRef = useRef<HTMLInputElement | null>(null);
 
+  // 拖拽高性能渲染：拖拽期间把光标/标注位置放到 ref，直接通过 rAF 绘制，绕过 React state
+  type LiveDragValues = {
+    cursorA?: number | null;
+    cursorB?: number | null;
+    cursorC?: number | null;
+    cursorD?: number | null;
+    cursorE?: number | null;
+    cursorF?: number | null;
+    cursorG?: number | null;
+    cursorH?: number | null;
+    measureLabelY?: number;
+    horizontalMeasureLabelX?: number;
+    crossMeasureLabelY?: number;
+    crossMeasureLabelX?: number;
+  };
+  const liveDragValuesRef = useRef<LiveDragValues>({});
+  const rafScheduledRef = useRef(false);
+  const canvasSizeRef = useRef<{ width: number; height: number; dpr: number }>({ width: 0, height: 0, dpr: 1 });
+
   const visibleChannels = useMemo(() => channels.filter((ch) => ch.visible), [channels]);
 
   const TEST_CONDITIONS_KEY = 'oscilloscope-test-conditions';
@@ -895,10 +914,183 @@ function App() {
     );
   };
 
+  function scheduleRender() {
+    if (rafScheduledRef.current) return;
+    rafScheduledRef.current = true;
+    requestAnimationFrame(() => {
+      rafScheduledRef.current = false;
+      renderFrame();
+    });
+  }
+
+  function commitDragValues() {
+    const live = liveDragValuesRef.current;
+    if (live.cursorA !== undefined) setCursorA(live.cursorA);
+    if (live.cursorB !== undefined) setCursorB(live.cursorB);
+    if (live.cursorC !== undefined) setCursorC(live.cursorC);
+    if (live.cursorD !== undefined) setCursorD(live.cursorD);
+    if (live.cursorE !== undefined) setCursorE(live.cursorE);
+    if (live.cursorF !== undefined) setCursorF(live.cursorF);
+    if (live.cursorG !== undefined) setCursorG(live.cursorG);
+    if (live.cursorH !== undefined) setCursorH(live.cursorH);
+    if (live.measureLabelY !== undefined) setMeasureLabelY(live.measureLabelY);
+    if (live.horizontalMeasureLabelX !== undefined) setHorizontalMeasureLabelX(live.horizontalMeasureLabelX);
+    if (live.crossMeasureLabelY !== undefined) setCrossMeasureLabelY(live.crossMeasureLabelY);
+    if (live.crossMeasureLabelX !== undefined) setCrossMeasureLabelX(live.crossMeasureLabelX);
+    liveDragValuesRef.current = {};
+  }
+
+  function renderFrame() {
+    const canvas = canvasRef.current;
+    const wrapper = viewRef.current;
+    if (!canvas || !wrapper) return;
+
+    const rect = wrapper.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const targetWidth = Math.max(1, Math.floor(rect.width * dpr));
+    const targetHeight = Math.max(1, Math.floor(rect.height * dpr));
+
+    if (
+      canvas.width !== targetWidth ||
+      canvas.height !== targetHeight ||
+      canvasSizeRef.current.dpr !== dpr
+    ) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      canvas.style.width = `${rect.width}px`;
+      canvas.style.height = `${rect.height}px`;
+      canvasSizeRef.current = { width: targetWidth, height: targetHeight, dpr };
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+
+    const width = rect.width;
+    const height = rect.height;
+    const plotWidth = Math.max(1, width - plotMargin.left - plotMargin.right);
+    const plotHeight = Math.max(1, height - plotMargin.top - plotMargin.bottom);
+
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, width, height);
+
+    if (channels.length === 0) {
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '14px Inter, ui-sans-serif, system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(
+        error ?? '请上传或拖拽 Yokogawa CSV 文件',
+        width / 2,
+        height / 2
+      );
+      ctx.textAlign = 'left';
+      return;
+    }
+
+    const totalChannels = channels.length;
+    const { minX, maxX } = getTimeRange(data, channels);
+    const xSpan = maxX - minX || 1;
+    const scaleX = (plotWidth / xSpan) * zoomX;
+
+    // 拖拽期间优先使用 live drag 值，避免触发 React 重渲染
+    const rCursorA = liveDragValuesRef.current.cursorA !== undefined ? liveDragValuesRef.current.cursorA : cursorA;
+    const rCursorB = liveDragValuesRef.current.cursorB !== undefined ? liveDragValuesRef.current.cursorB : cursorB;
+    const rCursorC = liveDragValuesRef.current.cursorC !== undefined ? liveDragValuesRef.current.cursorC : cursorC;
+    const rCursorD = liveDragValuesRef.current.cursorD !== undefined ? liveDragValuesRef.current.cursorD : cursorD;
+    const rCursorE = liveDragValuesRef.current.cursorE !== undefined ? liveDragValuesRef.current.cursorE : cursorE;
+    const rCursorF = liveDragValuesRef.current.cursorF !== undefined ? liveDragValuesRef.current.cursorF : cursorF;
+    const rCursorG = liveDragValuesRef.current.cursorG !== undefined ? liveDragValuesRef.current.cursorG : cursorG;
+    const rCursorH = liveDragValuesRef.current.cursorH !== undefined ? liveDragValuesRef.current.cursorH : cursorH;
+    const rMeasureLabelY = liveDragValuesRef.current.measureLabelY !== undefined ? liveDragValuesRef.current.measureLabelY : measureLabelY;
+    const rHorizontalMeasureLabelX = liveDragValuesRef.current.horizontalMeasureLabelX !== undefined ? liveDragValuesRef.current.horizontalMeasureLabelX : horizontalMeasureLabelX;
+    const rCrossMeasureLabelY = liveDragValuesRef.current.crossMeasureLabelY !== undefined ? liveDragValuesRef.current.crossMeasureLabelY : crossMeasureLabelY;
+    const rCrossMeasureLabelX = liveDragValuesRef.current.crossMeasureLabelX !== undefined ? liveDragValuesRef.current.crossMeasureLabelX : crossMeasureLabelX;
+
+    drawGrid(ctx, plotMargin, plotWidth, plotHeight);
+    drawAxes(ctx, plotMargin, plotWidth, plotHeight, minX, maxX, scaleX, panX);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(plotMargin.left, plotMargin.top, plotWidth, plotHeight);
+    ctx.clip();
+
+    channels.forEach((ch, index) => {
+      if (ch.visible) {
+        drawChannelWaveform(ctx, ch, index, totalChannels, plotMargin, plotWidth, plotHeight, scaleX, panX, minX, activeChannelId, horizontalCursorMode, crossCursorMode);
+      }
+    });
+
+    if (cursorMode) {
+      drawCursorLine(ctx, rCursorA, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
+      drawCursorLine(ctx, rCursorB, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
+      drawMeasureLine(ctx, rCursorA, rCursorB, rMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, rCursorA !== null && rCursorB !== null ? formatDeltaT(rCursorB - rCursorA) : undefined);
+    }
+
+    const screenYC = horizontalCursorMode ? getActiveChannelScreenYFromRatio(rCursorC) : null;
+    const screenYD = horizontalCursorMode ? getActiveChannelScreenYFromRatio(rCursorD) : null;
+    const dataYC = horizontalCursorMode ? getActiveChannelYFromRatio(rCursorC) : null;
+    const dataYD = horizontalCursorMode ? getActiveChannelYFromRatio(rCursorD) : null;
+    if (horizontalCursorMode) {
+      drawHorizontalCursorLine(ctx, rCursorC, '#ffffff', plotMargin, plotWidth, plotHeight, screenYC);
+      drawHorizontalCursorLine(ctx, rCursorD, '#ffffff', plotMargin, plotWidth, plotHeight, screenYD);
+      drawHorizontalMeasureAnnotation(ctx, dataYC, dataYD, rHorizontalMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYC, screenYD);
+    }
+
+    const screenYF = crossCursorMode ? getActiveChannelScreenYFromRatio(rCursorF) : null;
+    const screenYH = crossCursorMode ? getActiveChannelScreenYFromRatio(rCursorH) : null;
+    const dataYF = crossCursorMode ? getActiveChannelYFromRatio(rCursorF) : null;
+    const dataYH = crossCursorMode ? getActiveChannelYFromRatio(rCursorH) : null;
+    if (crossCursorMode) {
+      drawCursorLine(ctx, rCursorE, '#ff8a64', plotMargin, plotHeight, minX, scaleX, panX, 0.8);
+      drawCursorLine(ctx, rCursorG, '#64d0ff', plotMargin, plotHeight, minX, scaleX, panX, 0.8);
+      drawHorizontalCursorLine(ctx, rCursorF, '#ff8a64', plotMargin, plotWidth, plotHeight, screenYF, 0.8);
+      drawHorizontalCursorLine(ctx, rCursorH, '#64d0ff', plotMargin, plotWidth, plotHeight, screenYH, 0.8);
+      drawMeasureLine(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, rCursorE !== null && rCursorG !== null ? formatDeltaX(rCursorG - rCursorE) : undefined);
+      drawCrossMeasureXLabel(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
+      drawHorizontalMeasureAnnotation(ctx, dataYF, dataYH, rCrossMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYF, screenYH);
+    }
+
+    ctx.restore();
+
+    const singleChannelMode = zoomYMode || horizontalCursorMode || crossCursorMode;
+    channels.forEach((ch, index) => {
+      drawChannelLabels(ctx, ch, index, totalChannels, plotMargin, plotHeight, labelChannelId, singleChannelMode);
+    });
+
+    if (cursorMode) {
+      drawCursorLabel(ctx, rCursorA, '#ff8a64', 'A', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorB, '#64d0ff', 'B', plotMargin, plotWidth, minX, scaleX, panX);
+      drawMeasureLabel(ctx, rCursorA, rCursorB, rMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
+    }
+
+    if (horizontalCursorMode) {
+      drawHorizontalCursorLabel(ctx, rCursorC, '#ff8a64', 'C', plotMargin, plotWidth, plotHeight, screenYC);
+      drawHorizontalCursorLabel(ctx, rCursorD, '#64d0ff', 'D', plotMargin, plotWidth, plotHeight, screenYD);
+    }
+
+    if (crossCursorMode) {
+      drawCursorLabel(ctx, rCursorE, '#ff8a64', 'E', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorG, '#64d0ff', 'G', plotMargin, plotWidth, minX, scaleX, panX);
+      drawHorizontalCursorLabel(ctx, rCursorF, '#ff8a64', 'F', plotMargin, plotWidth, plotHeight, screenYF);
+      drawHorizontalCursorLabel(ctx, rCursorH, '#64d0ff', 'H', plotMargin, plotWidth, plotHeight, screenYH);
+    }
+
+    const overlayChannel = singleChannelMode
+      ? zoomYMode
+        ? channels.find((ch) => ch.id === selectedChannelId && ch.visible) ?? null
+        : activeChannel
+      : null;
+    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX, testTemp, testVoltage, singleChannelMode, overlayChannel, totalChannels, currentFilename);
+  }
+
   const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
     event.currentTarget.setPointerCapture(event.pointerId);
     pointerStartRef.current = { x: event.clientX, y: event.clientY };
     pointerMovedRef.current = false;
+    liveDragValuesRef.current = {};
 
     if (cursorMode) {
       // 仅左键：优先拖动测量值标注，其次拖动光标；其余情况保留平移拖动
@@ -992,8 +1184,8 @@ function App() {
       if (rect) {
         const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
         const screenY = event.clientY - rect.top;
-        const nextY = clamp((screenY - plotMargin.top) / plotHeight, 0, 1);
-        setMeasureLabelY(nextY);
+        liveDragValuesRef.current.measureLabelY = clamp((screenY - plotMargin.top) / plotHeight, 0, 1);
+        scheduleRender();
       }
       return;
     }
@@ -1001,8 +1193,9 @@ function App() {
     if (draggingCursor) {
       const dataX = getDataXFromMouse(event.clientX);
       if (dataX !== null) {
-        if (draggingCursor === 'A') setCursorA(dataX);
-        else setCursorB(dataX);
+        if (draggingCursor === 'A') liveDragValuesRef.current.cursorA = dataX;
+        else liveDragValuesRef.current.cursorB = dataX;
+        scheduleRender();
       }
       return;
     }
@@ -1012,8 +1205,8 @@ function App() {
       if (rect) {
         const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
         const screenX = event.clientX - rect.left;
-        const nextX = clamp((screenX - plotMargin.left) / plotWidth, 0, 1);
-        setHorizontalMeasureLabelX(nextX);
+        liveDragValuesRef.current.horizontalMeasureLabelX = clamp((screenX - plotMargin.left) / plotWidth, 0, 1);
+        scheduleRender();
       }
       return;
     }
@@ -1021,8 +1214,9 @@ function App() {
     if (draggingHorizontalCursor) {
       const ratio = getMouseRatioY(event.clientY);
       if (ratio !== null) {
-        if (draggingHorizontalCursor === 'C') setCursorC(ratio);
-        else setCursorD(ratio);
+        if (draggingHorizontalCursor === 'C') liveDragValuesRef.current.cursorC = ratio;
+        else liveDragValuesRef.current.cursorD = ratio;
+        scheduleRender();
       }
       return;
     }
@@ -1032,8 +1226,8 @@ function App() {
       if (rect) {
         const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
         const screenY = event.clientY - rect.top;
-        const nextY = clamp((screenY - plotMargin.top) / plotHeight, 0, 1);
-        setCrossMeasureLabelY(nextY);
+        liveDragValuesRef.current.crossMeasureLabelY = clamp((screenY - plotMargin.top) / plotHeight, 0, 1);
+        scheduleRender();
       }
       return;
     }
@@ -1043,8 +1237,8 @@ function App() {
       if (rect) {
         const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
         const screenX = event.clientX - rect.left;
-        const nextX = clamp((screenX - plotMargin.left) / plotWidth, 0, 1);
-        setCrossMeasureLabelX(nextX);
+        liveDragValuesRef.current.crossMeasureLabelX = clamp((screenX - plotMargin.left) / plotWidth, 0, 1);
+        scheduleRender();
       }
       return;
     }
@@ -1053,26 +1247,27 @@ function App() {
       if (draggingCrossCursor === 'EF') {
         const dataX = getDataXFromMouse(event.clientX);
         const ratio = getMouseRatioY(event.clientY);
-        if (dataX !== null) setCursorE(dataX);
-        if (ratio !== null) setCursorF(ratio);
+        if (dataX !== null) liveDragValuesRef.current.cursorE = dataX;
+        if (ratio !== null) liveDragValuesRef.current.cursorF = ratio;
       } else if (draggingCrossCursor === 'GH') {
         const dataX = getDataXFromMouse(event.clientX);
         const ratio = getMouseRatioY(event.clientY);
-        if (dataX !== null) setCursorG(dataX);
-        if (ratio !== null) setCursorH(ratio);
+        if (dataX !== null) liveDragValuesRef.current.cursorG = dataX;
+        if (ratio !== null) liveDragValuesRef.current.cursorH = ratio;
       } else if (draggingCrossCursor === 'E' || draggingCrossCursor === 'G') {
         const dataX = getDataXFromMouse(event.clientX);
         if (dataX !== null) {
-          if (draggingCrossCursor === 'E') setCursorE(dataX);
-          else setCursorG(dataX);
+          if (draggingCrossCursor === 'E') liveDragValuesRef.current.cursorE = dataX;
+          else liveDragValuesRef.current.cursorG = dataX;
         }
       } else {
         const ratio = getMouseRatioY(event.clientY);
         if (ratio !== null) {
-          if (draggingCrossCursor === 'F') setCursorF(ratio);
-          else setCursorH(ratio);
+          if (draggingCrossCursor === 'F') liveDragValuesRef.current.cursorF = ratio;
+          else liveDragValuesRef.current.cursorH = ratio;
         }
       }
+      scheduleRender();
       return;
     }
 
@@ -1158,6 +1353,8 @@ function App() {
   };
 
   const handlePointerUp = () => {
+    // 先把拖拽期间的 live 值提交到 React state，再清拖拽标记
+    commitDragValues();
     setDragging(false);
     setDraggingChannelId(null);
     setDraggingCursor(null);
@@ -1420,6 +1617,7 @@ function App() {
   };
 
   const resetView = () => {
+    liveDragValuesRef.current = {};
     setZoomX(1);
     setPanX(0);
     setCursorA(null);
@@ -1562,6 +1760,7 @@ function App() {
   };
 
   const handleClearCursors = () => {
+    liveDragValuesRef.current = {};
     if (cursorMode) {
       setCursorA(null);
       setCursorB(null);
@@ -1611,136 +1810,9 @@ function App() {
     if (nextPanX !== panX) setPanX(nextPanX);
   }, [zoomX, panX, resizeTick]);
 
-  // 绘制示波器画面
+  // 绘制示波器画面：状态变化时通过 renderFrame 重绘
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const wrapper = viewRef.current;
-    if (!canvas || !wrapper) return;
-
-    const rect = wrapper.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
-    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, rect.width, rect.height);
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
-
-    const width = rect.width;
-    const height = rect.height;
-    const plotWidth = Math.max(1, width - plotMargin.left - plotMargin.right);
-    const plotHeight = Math.max(1, height - plotMargin.top - plotMargin.bottom);
-
-    // 背景
-    ctx.fillStyle = '#050505';
-    ctx.fillRect(0, 0, width, height);
-
-    if (channels.length === 0) {
-      ctx.fillStyle = '#6b7280';
-      ctx.font = '14px Inter, ui-sans-serif, system-ui';
-      ctx.textAlign = 'center';
-      ctx.fillText(
-        error ?? '请上传或拖拽 Yokogawa CSV 文件',
-        width / 2,
-        height / 2
-      );
-      ctx.textAlign = 'left';
-      return;
-    }
-
-    const totalChannels = channels.length;
-    const { minX, maxX } = getTimeRange(data, channels);
-    const xSpan = maxX - minX || 1;
-    const scaleX = (plotWidth / xSpan) * zoomX;
-
-    drawGrid(ctx, plotMargin, plotWidth, plotHeight);
-    drawAxes(ctx, plotMargin, plotWidth, plotHeight, minX, maxX, scaleX, panX);
-
-    // 使用裁剪限制波形和光标只绘制在图形框内部
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(plotMargin.left, plotMargin.top, plotWidth, plotHeight);
-    ctx.clip();
-
-    channels.forEach((ch, index) => {
-      if (ch.visible) {
-        drawChannelWaveform(ctx, ch, index, totalChannels, plotMargin, plotWidth, plotHeight, scaleX, panX, minX, activeChannelId, horizontalCursorMode, crossCursorMode);
-      }
-    });
-
-    // 纵向光标模式下绘制 A/B 虚线与测量虚线
-    if (cursorMode) {
-      drawCursorLine(ctx, cursorA, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
-      drawCursorLine(ctx, cursorB, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
-      drawMeasureLine(ctx, cursorA, cursorB, measureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, cursorA !== null && cursorB !== null ? formatDeltaT(cursorB - cursorA) : undefined);
-    }
-
-    // 横向光标模式下绘制 C/D 虚线与测量虚线
-    const screenYC = horizontalCursorMode ? getActiveChannelScreenYFromRatio(cursorC) : null;
-    const screenYD = horizontalCursorMode ? getActiveChannelScreenYFromRatio(cursorD) : null;
-    const dataYC = horizontalCursorMode ? getActiveChannelYFromRatio(cursorC) : null;
-    const dataYD = horizontalCursorMode ? getActiveChannelYFromRatio(cursorD) : null;
-    if (horizontalCursorMode) {
-      drawHorizontalCursorLine(ctx, cursorC, '#ffffff', plotMargin, plotWidth, plotHeight, screenYC);
-      drawHorizontalCursorLine(ctx, cursorD, '#ffffff', plotMargin, plotWidth, plotHeight, screenYD);
-      drawHorizontalMeasureAnnotation(ctx, dataYC, dataYD, horizontalMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYC, screenYD);
-    }
-
-    // 纵横光标模式下绘制 EF/GH 十字虚线与 ΔX/ΔY 测量虚线
-    const screenYF = crossCursorMode ? getActiveChannelScreenYFromRatio(cursorF) : null;
-    const screenYH = crossCursorMode ? getActiveChannelScreenYFromRatio(cursorH) : null;
-    const dataYF = crossCursorMode ? getActiveChannelYFromRatio(cursorF) : null;
-    const dataYH = crossCursorMode ? getActiveChannelYFromRatio(cursorH) : null;
-    if (crossCursorMode) {
-      drawCursorLine(ctx, cursorE, '#ff8a64', plotMargin, plotHeight, minX, scaleX, panX, 0.8);
-      drawCursorLine(ctx, cursorG, '#64d0ff', plotMargin, plotHeight, minX, scaleX, panX, 0.8);
-      drawHorizontalCursorLine(ctx, cursorF, '#ff8a64', plotMargin, plotWidth, plotHeight, screenYF, 0.8);
-      drawHorizontalCursorLine(ctx, cursorH, '#64d0ff', plotMargin, plotWidth, plotHeight, screenYH, 0.8);
-      drawMeasureLine(ctx, cursorE, cursorG, crossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, cursorE !== null && cursorG !== null ? formatDeltaX(cursorG - cursorE) : undefined);
-      drawCrossMeasureXLabel(ctx, cursorE, cursorG, crossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
-      drawHorizontalMeasureAnnotation(ctx, dataYF, dataYH, crossMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYF, screenYH);
-    }
-
-    ctx.restore();
-
-    // 标签绘制在裁剪区域外，确保始终可读；隐藏通道标签变淡
-    const singleChannelMode = zoomYMode || horizontalCursorMode || crossCursorMode;
-    channels.forEach((ch, index) => {
-      drawChannelLabels(ctx, ch, index, totalChannels, plotMargin, plotHeight, labelChannelId, singleChannelMode);
-    });
-
-    // 纵向光标模式下绘制 A/B 标签与测量值文本
-    if (cursorMode) {
-      drawCursorLabel(ctx, cursorA, '#ff8a64', 'A', plotMargin, plotWidth, minX, scaleX, panX);
-      drawCursorLabel(ctx, cursorB, '#64d0ff', 'B', plotMargin, plotWidth, minX, scaleX, panX);
-      drawMeasureLabel(ctx, cursorA, cursorB, measureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
-    }
-
-    // 横向光标模式下绘制 C/D 标签
-    if (horizontalCursorMode) {
-      drawHorizontalCursorLabel(ctx, cursorC, '#ff8a64', 'C', plotMargin, plotWidth, plotHeight, screenYC);
-      drawHorizontalCursorLabel(ctx, cursorD, '#64d0ff', 'D', plotMargin, plotWidth, plotHeight, screenYD);
-    }
-
-    // 纵横光标模式下绘制 EF/GH 标签
-    if (crossCursorMode) {
-      drawCursorLabel(ctx, cursorE, '#ff8a64', 'E', plotMargin, plotWidth, minX, scaleX, panX);
-      drawCursorLabel(ctx, cursorG, '#64d0ff', 'G', plotMargin, plotWidth, minX, scaleX, panX);
-      drawHorizontalCursorLabel(ctx, cursorF, '#ff8a64', 'F', plotMargin, plotWidth, plotHeight, screenYF);
-      drawHorizontalCursorLabel(ctx, cursorH, '#64d0ff', 'H', plotMargin, plotWidth, plotHeight, screenYH);
-    }
-
-    const overlayChannel = singleChannelMode
-      ? zoomYMode
-        ? channels.find((ch) => ch.id === selectedChannelId && ch.visible) ?? null
-        : activeChannel
-      : null;
-    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX, testTemp, testVoltage, singleChannelMode, overlayChannel, totalChannels, currentFilename);
+    renderFrame();
   }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, hoveredChannelId, draggingChannelId, selectedChannelId, cursorMode, cursorA, cursorB, hoveredCursor, draggingCursor, measureLabelY, draggingMeasureLabel, hoveredMeasureLabel, horizontalCursorMode, cursorC, cursorD, hoveredHorizontalCursor, draggingHorizontalCursor, horizontalMeasureLabelX, draggingHorizontalMeasureLabel, hoveredHorizontalMeasureLabel, crossCursorMode, cursorE, cursorF, cursorG, cursorH, hoveredCrossCursor, draggingCrossCursor, crossMeasureLabelY, crossMeasureLabelX, draggingCrossMeasureLabelX, draggingCrossMeasureLabelY, hoveredCrossMeasureLabelX, hoveredCrossMeasureLabelY, activeChannel, testTemp, testVoltage, currentFilename]);
 
   // 计算每个通道在光标处的值
