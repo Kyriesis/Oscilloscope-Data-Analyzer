@@ -212,6 +212,7 @@ function App() {
   };
   const liveDragValuesRef = useRef<LiveDragValues>({});
   const rafScheduledRef = useRef(false);
+  const panelSyncScheduledRef = useRef(false);
   const canvasSizeRef = useRef<{ width: number; height: number; dpr: number }>({ width: 0, height: 0, dpr: 1 });
 
   const visibleChannels = useMemo(() => channels.filter((ch) => ch.visible), [channels]);
@@ -923,6 +924,27 @@ function App() {
     });
   }
 
+  function schedulePanelSync() {
+    if (panelSyncScheduledRef.current) return;
+    panelSyncScheduledRef.current = true;
+    requestAnimationFrame(() => {
+      panelSyncScheduledRef.current = false;
+      const live = liveDragValuesRef.current;
+      if (live.cursorA !== undefined) setCursorA(live.cursorA);
+      if (live.cursorB !== undefined) setCursorB(live.cursorB);
+      if (live.cursorC !== undefined) setCursorC(live.cursorC);
+      if (live.cursorD !== undefined) setCursorD(live.cursorD);
+      if (live.cursorE !== undefined) setCursorE(live.cursorE);
+      if (live.cursorF !== undefined) setCursorF(live.cursorF);
+      if (live.cursorG !== undefined) setCursorG(live.cursorG);
+      if (live.cursorH !== undefined) setCursorH(live.cursorH);
+      if (live.measureLabelY !== undefined) setMeasureLabelY(live.measureLabelY);
+      if (live.horizontalMeasureLabelX !== undefined) setHorizontalMeasureLabelX(live.horizontalMeasureLabelX);
+      if (live.crossMeasureLabelY !== undefined) setCrossMeasureLabelY(live.crossMeasureLabelY);
+      if (live.crossMeasureLabelX !== undefined) setCrossMeasureLabelX(live.crossMeasureLabelX);
+    });
+  }
+
   function commitDragValues() {
     const live = liveDragValuesRef.current;
     if (live.cursorA !== undefined) setCursorA(live.cursorA);
@@ -1186,6 +1208,7 @@ function App() {
         const screenY = event.clientY - rect.top;
         liveDragValuesRef.current.measureLabelY = clamp((screenY - plotMargin.top) / plotHeight, 0, 1);
         scheduleRender();
+        schedulePanelSync();
       }
       return;
     }
@@ -1196,6 +1219,7 @@ function App() {
         if (draggingCursor === 'A') liveDragValuesRef.current.cursorA = dataX;
         else liveDragValuesRef.current.cursorB = dataX;
         scheduleRender();
+        schedulePanelSync();
       }
       return;
     }
@@ -1207,6 +1231,7 @@ function App() {
         const screenX = event.clientX - rect.left;
         liveDragValuesRef.current.horizontalMeasureLabelX = clamp((screenX - plotMargin.left) / plotWidth, 0, 1);
         scheduleRender();
+        schedulePanelSync();
       }
       return;
     }
@@ -1217,6 +1242,7 @@ function App() {
         if (draggingHorizontalCursor === 'C') liveDragValuesRef.current.cursorC = ratio;
         else liveDragValuesRef.current.cursorD = ratio;
         scheduleRender();
+        schedulePanelSync();
       }
       return;
     }
@@ -1228,6 +1254,7 @@ function App() {
         const screenY = event.clientY - rect.top;
         liveDragValuesRef.current.crossMeasureLabelY = clamp((screenY - plotMargin.top) / plotHeight, 0, 1);
         scheduleRender();
+        schedulePanelSync();
       }
       return;
     }
@@ -1239,6 +1266,7 @@ function App() {
         const screenX = event.clientX - rect.left;
         liveDragValuesRef.current.crossMeasureLabelX = clamp((screenX - plotMargin.left) / plotWidth, 0, 1);
         scheduleRender();
+        schedulePanelSync();
       }
       return;
     }
@@ -1268,6 +1296,7 @@ function App() {
         }
       }
       scheduleRender();
+      schedulePanelSync();
       return;
     }
 
