@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react';
 import { Channel, OscilloscopeData, Point } from './types';
-import { parseYokogawaCsv } from './csv';
+import { parseCsv } from './csv';
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -336,7 +336,7 @@ function App() {
       } catch {
         // 存储失败（如超出配额）不影响当前加载
       }
-      const parsed = parseYokogawaCsv(text);
+      const parsed = parseCsv(text);
       const csvDate = formatCsvDate(parsed.metadata.Date);
       let initializedChannels: Channel[] = parsed.channels.map((ch) => ({
         ...ch,
@@ -2104,7 +2104,7 @@ function App() {
                   <section>
                     <h3>功能特性</h3>
                     <ul>
-                      <li>上传或拖拽 Yokogawa Xviewer CSV 波形文件，自动解析多通道数据与真实时间轴。</li>
+                      <li>上传或拖拽 CSV 波形文件，自动识别并解析 Yokogawa Xviewer、Rigol 等品牌示波器导出的格式。</li>
                       <li>深色示波器界面，彩色波形、网格、左侧 Y 轴标识。</li>
                       <li>右侧通道面板：显示/隐藏、拖拽排序、双击自定义名称、方形 <strong>R</strong> 按钮反相。</li>
                       <li><strong>序列锁定</strong>：开启后记忆通道排序、Y 偏移、Y 缩放、反相状态及自定义名称；加载相同通道组的新文件时自动沿用，通道不匹配时自动关闭锁定。</li>
@@ -2121,7 +2121,7 @@ function App() {
                   <section>
                     <h3>操作指南</h3>
                     <ul>
-                      <li>上传或拖拽 Yokogawa CSV 文件到左侧文件区或波形显示区。</li>
+                      <li>上传或拖拽 Yokogawa / Rigol 等品牌示波器导出的 CSV 文件到左侧文件区或波形显示区。</li>
                       <li>在右侧通道面板勾选显示/隐藏通道；拖动通道标签调整顺序；双击通道名区域自定义名称（CH1/CH2 等固定名不可改）。</li>
                       <li>点击通道标签右侧的 <strong>R</strong> 按钮可切换该通道反相，波形与测量值会同步取反。</li>
                       <li>点击 <strong>🔒 序列锁定</strong> 可记忆当前通道排序、Y 偏移、Y 缩放、反相与自定义名；加载不同通道的新文件时会自动关闭锁定。</li>

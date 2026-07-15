@@ -6,7 +6,7 @@
 
 ## 功能特性
 
-- 上传或拖拽 Yokogawa Xviewer CSV 波形文件，自动解析多通道数据（CH1 / CH2 / CH4 / CH6 等）。
+- 上传或拖拽 CSV 波形文件，自动识别并解析 Yokogawa Xviewer、Rigol 等品牌示波器导出的格式。
 - 根据 `HResolution` 与 `HOffset` 还原真实时间轴。
 - 深色示波器界面：黑色画布、网格、彩色波形、左侧 Y 轴标识。
 - 右侧通道选择面板：
@@ -80,7 +80,11 @@ npm run build
 
 ## 支持的数据格式
 
-当前优先支持 **Yokogawa Xviewer** 导出的 CSV，典型表头包含：
+当前支持以下 CSV 格式：
+
+### Yokogawa Xviewer
+
+典型表头包含：
 
 ```csv
 "Model","Xviewer"
@@ -93,4 +97,15 @@ HOffset,-1.000900e+01,...
 HUnit,s,s,s,s,
 ```
 
-后续可扩展支持更通用的两列 CSV 格式。
+### Rigol
+
+典型表头：
+
+```csv
+Time(s),CH1V,CH2V,CH3V,CH4V
+-1.000000e+01,-9.380000e-03,-3.666667e-03,-2.666667e-02,6.186667e-02
+```
+
+第一列为时间（秒），后续每列对应一个通道的电压值。
+
+后续将逐步扩展 Siglent、Keysight、Tektronix 等品牌格式。

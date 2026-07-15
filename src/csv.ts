@@ -23,6 +23,43 @@ function parseNumber(value: string): number | null {
   return Number.isNaN(num) ? null : num;
 }
 
+function buildChannel(
+  name: string,
+  unit: string,
+  index: number,
+  points: Point[]
+): Channel {
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const p of points) {
+    minY = Math.min(minY, p.y);
+    maxY = Math.max(maxY, p.y);
+  }
+
+  if (!Number.isFinite(minY)) {
+    minY = -1;
+    maxY = 1;
+  } else if (minY === maxY) {
+    minY -= 1;
+    maxY += 1;
+  }
+
+  return {
+    id: name,
+    name,
+    customName: '',
+    unit,
+    color: getChannelColor(name, index),
+    points,
+    minY,
+    maxY,
+    visible: true,
+    yOffset: 0,
+    yZoom: 1,
+    inverted: false,
+  };
+}
+
 /**
  * 解析 Yokogawa 示波器 / Xviewer 导出的 CSV。
  * 元数据头示例：
@@ -32,6 +69,19 @@ function parseNumber(value: string): number | null {
  *   HOffset, -1.000900e+01
  *   HUnit, s
  */
+export function isYokogawaCsv(text: string): boolean {
+  const lines = text.split(/\r?\n/);
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line.length === 0) continue;
+    const cells = parseCells(line);
+    if (cells[0] === 'TraceName' || cells[0] === 'HResolution' || cells[0] === 'VUnit') {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function parseYokogawaCsv(text: string): OscilloscopeData {
   const lines = text
     .split(/\r?\n/)
@@ -106,8 +156,6 @@ export function parseYokogawaCsv(text: string): OscilloscopeData {
     const name = channelNames[i] ?? `CH${i + 1}`;
     const unit = channelUnits[i] ?? '';
     const points: Point[] = [];
-    let minY = Number.POSITIVE_INFINITY;
-    let maxY = Number.NEGATIVE_INFINITY;
 
     for (let rowIndex = 0; rowIndex < dataRows.length; rowIndex += 1) {
       const y = dataRows[rowIndex][i];
@@ -115,32 +163,9 @@ export function parseYokogawaCsv(text: string): OscilloscopeData {
 
       const x = rowIndex * hResolution + hOffset;
       points.push({ x, y });
-      minY = Math.min(minY, y);
-      maxY = Math.max(maxY, y);
     }
 
-    if (!Number.isFinite(minY)) {
-      minY = -1;
-      maxY = 1;
-    } else if (minY === maxY) {
-      minY -= 1;
-      maxY += 1;
-    }
-
-    return {
-      id: name,
-      name,
-      customName: '',
-      unit,
-      color: getChannelColor(name, i),
-      points,
-      minY,
-      maxY,
-      visible: true,
-      yOffset: 0,
-      yZoom: 1,
-      inverted: false,
-    };
+    return buildChannel(name, unit, i, points);
   });
 
   return {
@@ -152,4 +177,118 @@ export function parseYokogawaCsv(text: string): OscilloscopeData {
     xLabel: `Time (${hUnit})`,
     metadata,
   };
+}
+
+/**
+ * 解析 Rigol 示波器导出的 CSV。
+ * 表头示例：Time(s),CH1V,CH2V,CH3V,CH4V
+ * 第一列为时间（秒），后续各列为对应通道电压。
+ */
+export function isRigolCsv(text: string): boolean {
+  const firstLine = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  if (!firstLine) return false;
+  const cells = parseCells(firstLine);
+  if (cells.length < 2) return false;
+  const firstHeader = cells[0].toLowerCase();
+  if (!firstHeader.startsWith('time')) return false;
+  return cells.slice(1).some((cell) => /^ch\d/i.test(cell));
+}
+
+export function parseRigolCsv(text: string): OscilloscopeData {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) {
+    throw new Error('CSV 文件为空');
+  }
+
+  const headerCells = parseCells(lines[0]);
+  // 通道名与单位从表头解析，例如 "CH1V" -> name: "CH1", unit: "V"
+  const channelInfos = headerCells.slice(1).map((cell, i) => {
+    const match = cell.match(/^(CH\d+)([A-Za-z]*)$/i);
+    if (match) {
+      return { name: match[1].toUpperCase(), unit: match[2] || '' };
+    }
+    return { name: `CH${i + 1}`, unit: '' };
+  });
+
+  const timeValues: number[] = [];
+  const channelValues: number[][] = Array.from({ length: channelInfos.length }, () => []);
+
+  for (let i = 1; i < lines.length; i += 1) {
+    const cells = parseCells(lines[i]);
+    if (cells.length < 2) continue;
+    const t = parseNumber(cells[0]);
+    if (t === null) continue;
+    timeValues.push(t);
+    for (let ch = 0; ch < channelInfos.length; ch += 1) {
+      const val = parseNumber(cells[ch + 1] ?? '');
+      channelValues[ch].push(val === null ? Number.NaN : val);
+    }
+  }
+
+  if (timeValues.length === 0) {
+    throw new Error('未能从 Rigol CSV 中解析出有效数据');
+  }
+
+  const hResolution = timeValues.length > 1 ? timeValues[1] - timeValues[0] : 1;
+  const hOffset = timeValues[0];
+  const hUnit = 's';
+
+  const channels: Channel[] = channelInfos.map((info, i) => {
+    const points: Point[] = [];
+    for (let rowIndex = 0; rowIndex < timeValues.length; rowIndex += 1) {
+      const y = channelValues[i][rowIndex];
+      if (Number.isNaN(y)) continue;
+      points.push({ x: timeValues[rowIndex], y });
+    }
+    return buildChannel(info.name, info.unit, i, points);
+  });
+
+  return {
+    channels,
+    sampleCount: timeValues.length,
+    hResolution,
+    hOffset,
+    hUnit,
+    xLabel: 'Time (s)',
+    metadata: {
+      Source: 'Rigol CSV',
+      HResolution: String(hResolution),
+      HOffset: String(hOffset),
+    },
+  };
+}
+
+/**
+ * 通用 CSV 解析器注册表。
+ * 按优先级排列：先检测特定品牌格式，最后回退到通用格式。
+ */
+export interface CsvParser {
+  name: string;
+  canParse: (text: string) => boolean;
+  parse: (text: string) => OscilloscopeData;
+}
+
+export const csvParsers: CsvParser[] = [
+  { name: 'yokogawa', canParse: isYokogawaCsv, parse: parseYokogawaCsv },
+  { name: 'rigol', canParse: isRigolCsv, parse: parseRigolCsv },
+];
+
+/**
+ * 自动检测并解析 CSV 文件。
+ */
+export function parseCsv(text: string): OscilloscopeData {
+  const parser = csvParsers.find((p) => p.canParse(text));
+  if (!parser) {
+    throw new Error(
+      '无法识别的 CSV 格式。当前支持 Yokogawa Xviewer 和 Rigol 示波器导出的 CSV。'
+    );
+  }
+  return parser.parse(text);
 }
