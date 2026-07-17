@@ -253,7 +253,8 @@ export function parseRigolCsv(text: string): OscilloscopeData {
 
   for (let i = 1; i < lines.length; i += 1) {
     const cells = parseCells(lines[i]);
-    if (cells.length < 2) continue;
+    const minCells = hasTimeColumn ? channelInfos.length + 1 : channelInfos.length;
+    if (cells.length < minCells) continue;
 
     if (hasTimeColumn) {
       // 格式 1：第一列是时间
