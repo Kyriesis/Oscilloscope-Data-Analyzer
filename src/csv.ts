@@ -192,9 +192,17 @@ export function isRigolCsv(text: string): boolean {
   if (!firstLine) return false;
   const cells = parseCells(firstLine);
   if (cells.length < 2) return false;
+
+  // 格式 1：Time(s),CH1V,CH2V,...
   const firstHeader = cells[0].toLowerCase();
-  if (!firstHeader.startsWith('time')) return false;
-  return cells.slice(1).some((cell) => /^ch\d/i.test(cell));
+  if (firstHeader.startsWith('time')) {
+    return cells.slice(1).some((cell) => /^ch\d/i.test(cell));
+  }
+
+  // 格式 2：CH1V,CH2V,...,t0=...,tInc=...
+  const hasChannelHeaders = cells.some((cell) => /^ch\d/i.test(cell));
+  const hasTimeParams = firstLine.toLowerCase().includes('t0') && firstLine.toLowerCase().includes('tinc');
+  return hasChannelHeaders && hasTimeParams;
 }
 
 export function parseRigolCsv(text: string): OscilloscopeData {
@@ -208,8 +216,31 @@ export function parseRigolCsv(text: string): OscilloscopeData {
   }
 
   const headerCells = parseCells(lines[0]);
+  const firstHeader = headerCells[0].toLowerCase();
+  const hasTimeColumn = firstHeader.startsWith('time');
+
+  // 提取表头中的 t0 和 tInc（高精度格式）
+  let hOffset = 0;
+  let hResolution = 1;
+  const hUnit = 's';
+
+  for (const cell of headerCells) {
+    const normalized = cell.replace(/\s/g, '').toLowerCase();
+    const t0Match = normalized.match(/^t0=([\d\-+\.e]+)/i);
+    const tIncMatch = normalized.match(/^tinc=([\d\-+\.e]+)/i);
+    if (t0Match) {
+      const val = parseNumber(t0Match[1]);
+      if (val !== null) hOffset = val;
+    }
+    if (tIncMatch) {
+      const val = parseNumber(tIncMatch[1]);
+      if (val !== null) hResolution = val;
+    }
+  }
+
   // 通道名与单位从表头解析，例如 "CH1V" -> name: "CH1", unit: "V"
-  const channelInfos = headerCells.slice(1).map((cell, i) => {
+  const channelCells = hasTimeColumn ? headerCells.slice(1) : headerCells.filter((cell) => /^ch\d/i.test(cell));
+  const channelInfos = channelCells.map((cell, i) => {
     const match = cell.match(/^(CH\d+)([A-Za-z]*)$/i);
     if (match) {
       return { name: match[1].toUpperCase(), unit: match[2] || '' };
@@ -223,12 +254,23 @@ export function parseRigolCsv(text: string): OscilloscopeData {
   for (let i = 1; i < lines.length; i += 1) {
     const cells = parseCells(lines[i]);
     if (cells.length < 2) continue;
-    const t = parseNumber(cells[0]);
-    if (t === null) continue;
-    timeValues.push(t);
-    for (let ch = 0; ch < channelInfos.length; ch += 1) {
-      const val = parseNumber(cells[ch + 1] ?? '');
-      channelValues[ch].push(val === null ? Number.NaN : val);
+
+    if (hasTimeColumn) {
+      // 格式 1：第一列是时间
+      const t = parseNumber(cells[0]);
+      if (t === null) continue;
+      timeValues.push(t);
+      for (let ch = 0; ch < channelInfos.length; ch += 1) {
+        const val = parseNumber(cells[ch + 1] ?? '');
+        channelValues[ch].push(val === null ? Number.NaN : val);
+      }
+    } else {
+      // 格式 2：按行索引计算时间
+      timeValues.push(hOffset + timeValues.length * hResolution);
+      for (let ch = 0; ch < channelInfos.length; ch += 1) {
+        const val = parseNumber(cells[ch] ?? '');
+        channelValues[ch].push(val === null ? Number.NaN : val);
+      }
     }
   }
 
@@ -236,9 +278,11 @@ export function parseRigolCsv(text: string): OscilloscopeData {
     throw new Error('未能从 Rigol CSV 中解析出有效数据');
   }
 
-  const hResolution = timeValues.length > 1 ? timeValues[1] - timeValues[0] : 1;
-  const hOffset = timeValues[0];
-  const hUnit = 's';
+  // 如果存在显式时间列，以实际时间为准重新计算 hResolution/hOffset
+  if (hasTimeColumn) {
+    hResolution = timeValues.length > 1 ? timeValues[1] - timeValues[0] : 1;
+    hOffset = timeValues[0];
+  }
 
   const channels: Channel[] = channelInfos.map((info, i) => {
     const points: Point[] = [];
