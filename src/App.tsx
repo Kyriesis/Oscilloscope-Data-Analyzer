@@ -1407,7 +1407,7 @@ function App() {
 
     if (cursorMode) {
       if (hoveredMeasureLabel) return;
-      if (!event.ctrlKey) return;
+      if (!event.shiftKey) return;
       const dataX = getDataXFromMouse(event.clientX);
       if (dataX !== null) setCursorA(dataX);
       return;
@@ -1416,7 +1416,7 @@ function App() {
     if (horizontalCursorMode) {
       if (hoveredHorizontalMeasureLabel || hoveredHorizontalCursor) return;
       const hoveredChannel = findHoveredChannel(event.clientX, event.clientY, 10);
-      if (!event.ctrlKey) {
+      if (!event.shiftKey) {
         if (hoveredChannel) {
           setSelectedChannelId(hoveredChannel);
           setLastHorizontalActiveChannelId(hoveredChannel);
@@ -1434,7 +1434,7 @@ function App() {
     if (crossCursorMode) {
       if (hoveredCrossMeasureLabelX || hoveredCrossMeasureLabelY || hoveredCrossCursor) return;
       const hoveredChannel = findHoveredChannel(event.clientX, event.clientY, 10);
-      if (!event.ctrlKey) {
+      if (!event.shiftKey) {
         if (hoveredChannel) {
           setSelectedChannelId(hoveredChannel);
           setLastCrossActiveChannelId(hoveredChannel);
@@ -1472,7 +1472,6 @@ function App() {
 
   const handleContextMenu = (event: MouseEvent<HTMLCanvasElement>) => {
     if (cursorMode) {
-      if (!event.ctrlKey) return;
       event.preventDefault();
       if (pointerMovedRef.current) return;
       if (hoveredMeasureLabel) return;
@@ -1482,7 +1481,6 @@ function App() {
     }
 
     if (horizontalCursorMode) {
-      if (!event.ctrlKey) return;
       event.preventDefault();
       if (pointerMovedRef.current) return;
       if (hoveredHorizontalMeasureLabel || hoveredHorizontalCursor) return;
@@ -1492,7 +1490,6 @@ function App() {
     }
 
     if (crossCursorMode) {
-      if (!event.ctrlKey) return;
       event.preventDefault();
       if (pointerMovedRef.current) return;
       if (hoveredCrossMeasureLabelX || hoveredCrossMeasureLabelY || hoveredCrossCursor) return;
@@ -1909,7 +1906,7 @@ function App() {
             type="button"
             className={`toolbar-btn ${cursorMode ? 'active' : ''}`}
             onClick={toggleCursorMode}
-            title="激活后 Ctrl+左键设置光标 A，Ctrl+右键设置光标 B，可拖动测量线"
+            title="激活后 Shift+左键设置光标 A，右键设置光标 B，可拖动测量线"
           >
             纵向光标
           </button>
@@ -1917,7 +1914,7 @@ function App() {
             type="button"
             className={`toolbar-btn ${horizontalCursorMode ? 'active' : ''}`}
             onClick={toggleHorizontalCursorMode}
-            title="激活后选择通道，Ctrl+左键设置光标 C，Ctrl+右键设置光标 D，可拖动测量线"
+            title="激活后选择通道，Shift+左键设置光标 C，右键设置光标 D，可拖动测量线"
           >
             横向光标
           </button>
@@ -1925,7 +1922,7 @@ function App() {
             type="button"
             className={`toolbar-btn ${crossCursorMode ? 'active' : ''}`}
             onClick={toggleCrossCursorMode}
-            title="激活后选择通道，Ctrl+左键设置十字线 EF，Ctrl+右键设置十字线 GH，可拖动测量线"
+            title="激活后选择通道，Shift+左键设置十字线 EF，右键设置十字线 GH，可拖动测量线"
           >
             纵横光标
           </button>
@@ -2129,9 +2126,9 @@ function App() {
                       <li><strong>Zoom Y</strong>：激活后点击某条通道首次仅选中，再次点击放大一倍；右键单击缩小一倍；按住左键上下拖动可平移该通道 Y 位置。</li>
                       <li>在任意模式下按住鼠标左键拖动画布可平移时间轴。</li>
                       <li>点击通道曲线可在左侧 Y 轴显示该通道的固定名称、自定义名和 0 位标识；测量/Zoom Y 模式下点击曲线可激活对应通道。</li>
-                      <li><strong>纵向光标</strong>：激活后按住 <strong>Ctrl+左键</strong> 设置 A，<strong>Ctrl+右键</strong> 设置 B；可拖动虚线或标注调整位置。</li>
-                      <li><strong>横向光标</strong>：先点击通道曲线激活目标通道，然后 <strong>Ctrl+左键</strong> 设置 C，<strong>Ctrl+右键</strong> 设置 D。</li>
-                      <li><strong>纵横光标</strong>：先点击通道曲线激活目标通道，然后 <strong>Ctrl+左键</strong> 设置十字线 EF，<strong>Ctrl+右键</strong> 设置十字线 GH；可拖动单线或交点移动十字线。</li>
+                      <li><strong>纵向光标</strong>：激活后按住 <strong>Shift+左键</strong> 设置 A，<strong>右键</strong> 设置 B；可拖动虚线或标注调整位置。</li>
+                      <li><strong>横向光标</strong>：先点击通道曲线激活目标通道，然后 <strong>Shift+左键</strong> 设置 C，<strong>右键</strong> 设置 D。</li>
+                      <li><strong>纵横光标</strong>：先点击通道曲线激活目标通道，然后 <strong>Shift+左键</strong> 设置十字线 EF，<strong>右键</strong> 设置十字线 GH；可拖动单线或交点移动十字线。</li>
                       <li><strong>清除光标</strong>：清除当前测量模式下的光标与标注。</li>
                       <li><strong>重置视图</strong>：恢复当前文件的缩放、平移与测量状态，不影响序列锁定的记忆。</li>
                     </ul>
