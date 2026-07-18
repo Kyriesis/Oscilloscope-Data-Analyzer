@@ -1065,10 +1065,10 @@ function App() {
     const dataYF = crossCursorMode ? getActiveChannelYFromRatio(rCursorF) : null;
     const dataYH = crossCursorMode ? getActiveChannelYFromRatio(rCursorH) : null;
     if (crossCursorMode) {
-      drawCursorLine(ctx, rCursorE, '#ff8a64', plotMargin, plotHeight, minX, scaleX, panX, 0.8);
-      drawCursorLine(ctx, rCursorG, '#64d0ff', plotMargin, plotHeight, minX, scaleX, panX, 0.8);
-      drawHorizontalCursorLine(ctx, rCursorF, '#ff8a64', plotMargin, plotWidth, plotHeight, screenYF, 0.8);
-      drawHorizontalCursorLine(ctx, rCursorH, '#64d0ff', plotMargin, plotWidth, plotHeight, screenYH, 0.8);
+      drawCursorLine(ctx, rCursorE, '#ffd700', plotMargin, plotHeight, minX, scaleX, panX);
+      drawCursorLine(ctx, rCursorG, '#00ffff', plotMargin, plotHeight, minX, scaleX, panX);
+      drawHorizontalCursorLine(ctx, rCursorF, '#ffd700', plotMargin, plotWidth, plotHeight, screenYF);
+      drawHorizontalCursorLine(ctx, rCursorH, '#00ffff', plotMargin, plotWidth, plotHeight, screenYH);
       drawMeasureLine(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, rCursorE !== null && rCursorG !== null ? formatDeltaX(rCursorG - rCursorE) : undefined);
       drawCrossMeasureXLabel(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
       drawHorizontalMeasureAnnotation(ctx, dataYF, dataYH, rCrossMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYF, screenYH);
@@ -1082,21 +1082,21 @@ function App() {
     });
 
     if (cursorMode) {
-      drawCursorLabel(ctx, rCursorA, '#ff8a64', 'A', plotMargin, plotWidth, minX, scaleX, panX);
-      drawCursorLabel(ctx, rCursorB, '#64d0ff', 'B', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorA, '#ffd700', 'A', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorB, '#00ffff', 'B', plotMargin, plotWidth, minX, scaleX, panX);
       drawMeasureLabel(ctx, rCursorA, rCursorB, rMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
     }
 
     if (horizontalCursorMode) {
-      drawHorizontalCursorLabel(ctx, rCursorC, '#ff8a64', 'C', plotMargin, plotWidth, plotHeight, screenYC);
-      drawHorizontalCursorLabel(ctx, rCursorD, '#64d0ff', 'D', plotMargin, plotWidth, plotHeight, screenYD);
+      drawHorizontalCursorLabel(ctx, rCursorC, '#ffd700', 'C', plotMargin, plotWidth, plotHeight, screenYC);
+      drawHorizontalCursorLabel(ctx, rCursorD, '#00ffff', 'D', plotMargin, plotWidth, plotHeight, screenYD);
     }
 
     if (crossCursorMode) {
-      drawCursorLabel(ctx, rCursorE, '#ff8a64', 'E', plotMargin, plotWidth, minX, scaleX, panX);
-      drawCursorLabel(ctx, rCursorG, '#64d0ff', 'G', plotMargin, plotWidth, minX, scaleX, panX);
-      drawHorizontalCursorLabel(ctx, rCursorF, '#ff8a64', 'F', plotMargin, plotWidth, plotHeight, screenYF);
-      drawHorizontalCursorLabel(ctx, rCursorH, '#64d0ff', 'H', plotMargin, plotWidth, plotHeight, screenYH);
+      drawCursorLabel(ctx, rCursorE, '#ffd700', 'E', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorG, '#00ffff', 'G', plotMargin, plotWidth, minX, scaleX, panX);
+      drawHorizontalCursorLabel(ctx, rCursorF, '#ffd700', 'F', plotMargin, plotWidth, plotHeight, screenYF);
+      drawHorizontalCursorLabel(ctx, rCursorH, '#00ffff', 'H', plotMargin, plotWidth, plotHeight, screenYH);
     }
 
     const overlayChannel = singleChannelMode
@@ -2619,7 +2619,7 @@ function drawCursorLine(
   minX: number,
   scaleX: number,
   panX: number,
-  lineWidth = 0.6
+  lineWidth = 0.8
 ) {
   if (cursorX === null) return;
   const screenX = margin.left + (cursorX - minX) * scaleX + panX;
@@ -2665,7 +2665,7 @@ function drawHorizontalCursorLine(
   plotWidth: number,
   plotHeight: number,
   screenY: number | null,
-  lineWidth = 0.6
+  lineWidth = 0.8
 ) {
   if (cursorY === null || screenY === null) return;
   if (screenY < margin.top || screenY > margin.top + plotHeight) return;
@@ -2720,7 +2720,7 @@ function drawHorizontalMeasureAnnotation(
 
   // 两光标之间的竖直虚线
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-  ctx.lineWidth = 0.6;
+  ctx.lineWidth = 0.8;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(labelX, clamp(screenYC, margin.top, margin.top + plotHeight));
@@ -2794,7 +2794,7 @@ function drawMeasureLine(
   const leftX = Math.min(screenXA, screenXB);
 
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-  ctx.lineWidth = 0.6;
+  ctx.lineWidth = 0.8;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(clamp(screenXA, margin.left, margin.left + plotWidth), labelY);
