@@ -2516,24 +2516,68 @@ function drawChannelWaveform(
 
   // 波形：横向/纵横光标模式下，被选中/激活通道保持原样，其余通道变暗
   const isSelected = channel.id === selectedChannelId;
-  ctx.strokeStyle = ((horizontalCursorMode || crossCursorMode) && selectedChannelId !== null && !isSelected)
+  const style = ((horizontalCursorMode || crossCursorMode) && selectedChannelId !== null && !isSelected)
     ? dimColor(channel.color)
     : channel.color;
-  ctx.lineWidth = 1.5;
   ctx.globalAlpha = 1;
-  ctx.beginPath();
-  let first = true;
-  for (const point of channel.points) {
-    const x = margin.left + (point.x - minX) * scaleX + panX;
-    const y = bandCenterY - (point.y - yMid) * yScale * flip + channel.yOffset;
-    if (first) {
-      ctx.moveTo(x, y);
-      first = false;
+
+  const points = channel.points;
+  if (points.length === 0) return;
+
+  const toScreenX = (x: number) => margin.left + (x - minX) * scaleX + panX;
+  const toScreenY = (y: number) => bandCenterY - (y - yMid) * yScale * flip + channel.yOffset;
+
+  // 估算相邻采样点在屏幕上的间距（像素/采样点）
+  const dx = points.length > 1 ? points[1].x - points[0].x : 0;
+  const pixelsPerPoint = dx > 0 ? scaleX * dx : 0;
+
+  // 当相邻采样点间距 >= 1 像素时，逐点连线；否则多个采样点落在同一像素列，使用 envelope
+  if (pixelsPerPoint >= 1 || points.length < 2) {
+    ctx.strokeStyle = style;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(toScreenX(points[0].x), toScreenY(points[0].y));
+    for (let i = 1; i < points.length; i += 1) {
+      ctx.lineTo(toScreenX(points[i].x), toScreenY(points[i].y));
+    }
+    ctx.stroke();
+    return;
+  }
+
+  // Envelope 模式：每个屏幕像素列取所有落入该列的采样点的 min/max Y，画垂直线段
+  const minCol = margin.left;
+  const maxCol = margin.left + plotWidth;
+  const colCount = Math.ceil(maxCol - minCol) + 1;
+  const minYs = new Float32Array(colCount);
+  const maxYs = new Float32Array(colCount);
+  const has = new Uint8Array(colCount);
+  for (let i = 0; i < colCount; i += 1) {
+    minYs[i] = Number.POSITIVE_INFINITY;
+    maxYs[i] = Number.NEGATIVE_INFINITY;
+  }
+
+  for (const point of points) {
+    const sx = toScreenX(point.x);
+    const col = Math.floor(sx - minCol);
+    if (col < 0 || col >= colCount) continue;
+    const sy = toScreenY(point.y);
+    if (has[col] === 0) {
+      minYs[col] = sy;
+      maxYs[col] = sy;
+      has[col] = 1;
     } else {
-      ctx.lineTo(x, y);
+      if (sy < minYs[col]) minYs[col] = sy;
+      if (sy > maxYs[col]) maxYs[col] = sy;
     }
   }
-  ctx.stroke();
+
+  ctx.fillStyle = style;
+  for (let col = 0; col < colCount; col += 1) {
+    if (has[col] === 0) continue;
+    const yMin = minYs[col];
+    const yMax = maxYs[col];
+    ctx.fillRect(minCol + col, yMin, 1, Math.max(1, yMax - yMin));
+  }
 }
 
 function drawChannelLabels(
