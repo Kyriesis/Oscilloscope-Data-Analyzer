@@ -3024,19 +3024,13 @@ function formatTimebase(secondsPerDiv: number): string {
   return `[${(secondsPerDiv * 1e9).toFixed(3)}ns/div]`;
 }
 
-function roundToNearest5(value: number, decimals: number): number {
-  if (!Number.isFinite(value)) return value;
-  const factor = Math.pow(10, decimals);
-  return Math.round(value * factor / 5) * 5 / factor;
-}
-
 function formatVoltagePerDiv(voltsPerDiv: number, unit: string): string {
   if (!Number.isFinite(voltsPerDiv) || voltsPerDiv <= 0) return `[0${unit}/div]`;
   const abs = Math.abs(voltsPerDiv);
-  if (abs >= 1) return `[${roundToNearest5(abs, 3).toFixed(3)}${unit}/div]`;
-  if (abs >= 1e-3) return `[${roundToNearest5(abs * 1e3, 3).toFixed(3)}m${unit}/div]`;
-  if (abs >= 1e-6) return `[${roundToNearest5(abs * 1e6, 3).toFixed(3)}μ${unit}/div]`;
-  return `[${roundToNearest5(abs * 1e9, 3).toFixed(3)}n${unit}/div]`;
+  if (abs >= 1) return `[${Math.round(abs).toFixed(0)}${unit}/div]`;
+  if (abs >= 1e-3) return `[${Math.round(abs * 1e3).toFixed(0)}m${unit}/div]`;
+  if (abs >= 1e-6) return `[${Math.round(abs * 1e6).toFixed(0)}μ${unit}/div]`;
+  return `[${Math.round(abs * 1e9).toFixed(0)}n${unit}/div]`;
 }
 
 /** 将任意时基值吸附到标准序列（1,2,3,...,9 × 10^n）上 */
