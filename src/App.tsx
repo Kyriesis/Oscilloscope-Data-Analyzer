@@ -2472,15 +2472,21 @@ function drawAxes(
   const visibleMaxX = Math.min(maxX, minX + (plotWidth - panX) / scaleX);
   const visibleSpan = Math.max(0, visibleMaxX - visibleMinX) || 1;
 
+  // 每格时间，用于决定 X 轴刻度单位
+  const timebase = plotWidth / scaleX / 10;
+
   // X 轴刻度
   for (let i = 0; i <= 10; i += 1) {
     const x = margin.left + (plotWidth / 10) * i;
     const value = visibleMinX + (visibleSpan / 10) * i;
-    ctx.fillText(formatAxisValue(value), x, margin.top + plotHeight + 18);
+    ctx.fillText(formatTimeAxisValue(value, timebase), x, margin.top + plotHeight + 18);
   }
 
-  // X 轴标签
-  ctx.fillText('Time (s)', margin.left + plotWidth / 2, margin.top + plotHeight + 38);
+  // X 轴标签：根据时基自动切换单位
+  let xLabel = 'Time (s)';
+  if (timebase < 1e-3) xLabel = 'Time (μs)';
+  else if (timebase <= 0.1) xLabel = 'Time (ms)';
+  ctx.fillText(xLabel, margin.left + plotWidth / 2, margin.top + plotHeight + 38);
   ctx.textAlign = 'left';
 }
 
@@ -2920,12 +2926,22 @@ function drawCrossMeasureXLabel(
 
 function formatDeltaX(seconds: number): string {
   if (Math.abs(seconds) >= 1) return `ΔX: ${seconds.toFixed(6)} s`;
-  return `ΔX: ${(seconds * 1000).toFixed(3)} ms`;
+  if (Math.abs(seconds) >= 1e-3) return `ΔX: ${(seconds * 1000).toFixed(3)} ms`;
+  return `ΔX: ${(seconds * 1e6).toFixed(3)} μs`;
 }
 
 function formatDeltaT(seconds: number): string {
   if (Math.abs(seconds) >= 1) return `ΔT: ${seconds.toFixed(6)} s`;
-  return `ΔT: ${(seconds * 1000).toFixed(3)} ms`;
+  if (Math.abs(seconds) >= 1e-3) return `ΔT: ${(seconds * 1000).toFixed(3)} ms`;
+  return `ΔT: ${(seconds * 1e6).toFixed(3)} μs`;
+}
+
+function formatTimeAxisValue(value: number, timebase: number): string {
+  if (!Number.isFinite(value)) return 'NaN';
+  if (value === 0) return '0';
+  if (timebase < 1e-3) return (value * 1e6).toFixed(3);
+  if (timebase <= 0.1) return (value * 1000).toFixed(3);
+  return formatAxisValue(value);
 }
 
 function drawOverlay(
