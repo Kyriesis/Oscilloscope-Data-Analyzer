@@ -1065,9 +1065,9 @@ function App() {
     const dataYF = crossCursorMode ? getActiveChannelYFromRatio(rCursorF) : null;
     const dataYH = crossCursorMode ? getActiveChannelYFromRatio(rCursorH) : null;
     if (crossCursorMode) {
-      drawCursorLine(ctx, rCursorE, '#ff2a6d', plotMargin, plotHeight, minX, scaleX, panX);
+      drawCursorLine(ctx, rCursorE, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
       drawCursorLine(ctx, rCursorG, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
-      drawHorizontalCursorLine(ctx, rCursorF, '#ff2a6d', plotMargin, plotWidth, plotHeight, screenYF);
+      drawHorizontalCursorLine(ctx, rCursorF, '#ffffff', plotMargin, plotWidth, plotHeight, screenYF);
       drawHorizontalCursorLine(ctx, rCursorH, '#ffffff', plotMargin, plotWidth, plotHeight, screenYH);
       drawMeasureLine(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, rCursorE !== null && rCursorG !== null ? formatDeltaX(rCursorG - rCursorE) : undefined);
       drawCrossMeasureXLabel(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
@@ -1082,20 +1082,20 @@ function App() {
     });
 
     if (cursorMode) {
-      drawCursorLabel(ctx, rCursorA, '#ff2a6d', 'A', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorA, '#ffffff', 'A', plotMargin, plotWidth, minX, scaleX, panX);
       drawCursorLabel(ctx, rCursorB, '#ffffff', 'B', plotMargin, plotWidth, minX, scaleX, panX);
       drawMeasureLabel(ctx, rCursorA, rCursorB, rMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
     }
 
     if (horizontalCursorMode) {
-      drawHorizontalCursorLabel(ctx, rCursorC, '#ff2a6d', 'C', plotMargin, plotWidth, plotHeight, screenYC);
+      drawHorizontalCursorLabel(ctx, rCursorC, '#ffffff', 'C', plotMargin, plotWidth, plotHeight, screenYC);
       drawHorizontalCursorLabel(ctx, rCursorD, '#ffffff', 'D', plotMargin, plotWidth, plotHeight, screenYD);
     }
 
     if (crossCursorMode) {
-      drawCursorLabel(ctx, rCursorE, '#ff2a6d', 'E', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorE, '#ffffff', 'E', plotMargin, plotWidth, minX, scaleX, panX);
       drawCursorLabel(ctx, rCursorG, '#ffffff', 'G', plotMargin, plotWidth, minX, scaleX, panX);
-      drawHorizontalCursorLabel(ctx, rCursorF, '#ff2a6d', 'F', plotMargin, plotWidth, plotHeight, screenYF);
+      drawHorizontalCursorLabel(ctx, rCursorF, '#ffffff', 'F', plotMargin, plotWidth, plotHeight, screenYF);
       drawHorizontalCursorLabel(ctx, rCursorH, '#ffffff', 'H', plotMargin, plotWidth, plotHeight, screenYH);
     }
 
