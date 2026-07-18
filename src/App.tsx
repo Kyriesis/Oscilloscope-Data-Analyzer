@@ -12,10 +12,18 @@ import {
 } from 'react';
 import { Channel, OscilloscopeData, Point } from './types';
 import { parseCsv } from './csv';
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
+import {
+  clamp,
+  dimColor,
+  formatAxisValue,
+  formatDeltaT,
+  formatDeltaX,
+  formatFrequency,
+  formatTimeAxisValue,
+  formatTimebase,
+  formatValue,
+  formatVoltagePerDiv,
+} from './format';
 
 /** 计算点 P 到线段 AB 的最短距离 */
 function pointToSegmentDistance(
@@ -86,15 +94,6 @@ function getChannelYOffsetBounds(
     min: minZeroY - zeroYWithoutOffset,
     max: maxZeroY - zeroYWithoutOffset,
   };
-}
-
-function formatValue(value: number | null, unit: string): string {
-  if (value === null) return '--';
-  const prefix = unit ? ` ${unit}` : '';
-  if (Math.abs(value) >= 10000 || (Math.abs(value) < 0.001 && value !== 0)) {
-    return `${value.toExponential(4)}${prefix}`;
-  }
-  return `${value.toFixed(4)}${prefix}`;
 }
 
 function findNearestPoint(channel: Channel, x: number): Point | null {
@@ -2278,7 +2277,7 @@ function App() {
                   <span className="cursor-delta">
                     {formatDeltaT(cursorB - cursorA)}
                     {Math.abs(cursorB - cursorA) > 1e-12 && (
-                      <>  1/ΔT = {(1 / Math.abs(cursorB - cursorA)).toFixed(3)} Hz</>
+                      <>  1/ΔT = {formatFrequency(1 / Math.abs(cursorB - cursorA))}</>
                     )}
                   </span>
                 )}
@@ -2367,7 +2366,7 @@ function App() {
                 </div>
                 {cursorE !== null && cursorG !== null && Math.abs(cursorG - cursorE) > 1e-12 && (
                   <div className="cursor-delta" style={{ width: '100%' }}>
-                    1/ΔX = {(1 / Math.abs(cursorG - cursorE)).toFixed(3)} Hz
+                    1/ΔX = {formatFrequency(1 / Math.abs(cursorG - cursorE))}
                   </div>
                 )}
               </div>
@@ -2488,13 +2487,6 @@ function drawAxes(
   else if (timebase <= 0.1) xLabel = 'Time (ms)';
   ctx.fillText(xLabel, margin.left + plotWidth / 2, margin.top + plotHeight + 38);
   ctx.textAlign = 'left';
-}
-
-function dimColor(hex: string, alpha = 0.3): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 function drawChannelWaveform(
@@ -2924,26 +2916,6 @@ function drawCrossMeasureXLabel(
   ctx.textBaseline = 'alphabetic';
 }
 
-function formatDeltaX(seconds: number): string {
-  if (Math.abs(seconds) >= 1) return `ΔX: ${seconds.toFixed(6)} s`;
-  if (Math.abs(seconds) >= 1e-3) return `ΔX: ${(seconds * 1000).toFixed(3)} ms`;
-  return `ΔX: ${(seconds * 1e6).toFixed(3)} μs`;
-}
-
-function formatDeltaT(seconds: number): string {
-  if (Math.abs(seconds) >= 1) return `ΔT: ${seconds.toFixed(6)} s`;
-  if (Math.abs(seconds) >= 1e-3) return `ΔT: ${(seconds * 1000).toFixed(3)} ms`;
-  return `ΔT: ${(seconds * 1e6).toFixed(3)} μs`;
-}
-
-function formatTimeAxisValue(value: number, timebase: number): string {
-  if (!Number.isFinite(value)) return 'NaN';
-  if (value === 0) return '0';
-  if (timebase < 1e-3) return (value * 1e6).toFixed(3);
-  if (timebase <= 0.1) return (value * 1000).toFixed(3);
-  return formatAxisValue(value);
-}
-
 function drawOverlay(
   ctx: CanvasRenderingContext2D,
   data: OscilloscopeData | null,
@@ -3005,32 +2977,6 @@ function drawOverlay(
   }
 
   ctx.textAlign = 'left';
-}
-
-function formatAxisValue(value: number): string {
-  if (!Number.isFinite(value)) return 'NaN';
-  if (value === 0) return '0';
-  if (Math.abs(value) >= 10000 || (Math.abs(value) < 0.001)) {
-    return value.toExponential(3);
-  }
-  return value.toFixed(3);
-}
-
-function formatTimebase(secondsPerDiv: number): string {
-  if (!Number.isFinite(secondsPerDiv) || secondsPerDiv <= 0) return '[0s/div]';
-  if (secondsPerDiv >= 1) return `[${secondsPerDiv.toFixed(3)}s/div]`;
-  if (secondsPerDiv >= 1e-3) return `[${(secondsPerDiv * 1e3).toFixed(3)}ms/div]`;
-  if (secondsPerDiv >= 1e-6) return `[${(secondsPerDiv * 1e6).toFixed(3)}μs/div]`;
-  return `[${(secondsPerDiv * 1e9).toFixed(3)}ns/div]`;
-}
-
-function formatVoltagePerDiv(voltsPerDiv: number, unit: string): string {
-  if (!Number.isFinite(voltsPerDiv) || voltsPerDiv <= 0) return `[0${unit}/div]`;
-  const abs = Math.abs(voltsPerDiv);
-  if (abs >= 1) return `[${Math.round(abs).toFixed(0)}${unit}/div]`;
-  if (abs >= 1e-3) return `[${Math.round(abs * 1e3).toFixed(0)}m${unit}/div]`;
-  if (abs >= 1e-6) return `[${Math.round(abs * 1e6).toFixed(0)}μ${unit}/div]`;
-  return `[${Math.round(abs * 1e9).toFixed(0)}n${unit}/div]`;
 }
 
 /** 将任意时基值吸附到标准序列（1,2,3,...,9 × 10^n）上 */
