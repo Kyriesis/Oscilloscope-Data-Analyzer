@@ -1065,10 +1065,10 @@ function App() {
     const dataYF = crossCursorMode ? getActiveChannelYFromRatio(rCursorF) : null;
     const dataYH = crossCursorMode ? getActiveChannelYFromRatio(rCursorH) : null;
     if (crossCursorMode) {
-      drawCursorLine(ctx, rCursorE, '#ffd700', plotMargin, plotHeight, minX, scaleX, panX);
-      drawCursorLine(ctx, rCursorG, '#00ffff', plotMargin, plotHeight, minX, scaleX, panX);
-      drawHorizontalCursorLine(ctx, rCursorF, '#ffd700', plotMargin, plotWidth, plotHeight, screenYF);
-      drawHorizontalCursorLine(ctx, rCursorH, '#00ffff', plotMargin, plotWidth, plotHeight, screenYH);
+      drawCursorLine(ctx, rCursorE, '#ff2a6d', plotMargin, plotHeight, minX, scaleX, panX);
+      drawCursorLine(ctx, rCursorG, '#39ff14', plotMargin, plotHeight, minX, scaleX, panX);
+      drawHorizontalCursorLine(ctx, rCursorF, '#ff2a6d', plotMargin, plotWidth, plotHeight, screenYF);
+      drawHorizontalCursorLine(ctx, rCursorH, '#39ff14', plotMargin, plotWidth, plotHeight, screenYH);
       drawMeasureLine(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, rCursorE !== null && rCursorG !== null ? formatDeltaX(rCursorG - rCursorE) : undefined);
       drawCrossMeasureXLabel(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
       drawHorizontalMeasureAnnotation(ctx, dataYF, dataYH, rCrossMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYF, screenYH);
@@ -1082,21 +1082,21 @@ function App() {
     });
 
     if (cursorMode) {
-      drawCursorLabel(ctx, rCursorA, '#ffd700', 'A', plotMargin, plotWidth, minX, scaleX, panX);
-      drawCursorLabel(ctx, rCursorB, '#00ffff', 'B', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorA, '#ff2a6d', 'A', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorB, '#39ff14', 'B', plotMargin, plotWidth, minX, scaleX, panX);
       drawMeasureLabel(ctx, rCursorA, rCursorB, rMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
     }
 
     if (horizontalCursorMode) {
-      drawHorizontalCursorLabel(ctx, rCursorC, '#ffd700', 'C', plotMargin, plotWidth, plotHeight, screenYC);
-      drawHorizontalCursorLabel(ctx, rCursorD, '#00ffff', 'D', plotMargin, plotWidth, plotHeight, screenYD);
+      drawHorizontalCursorLabel(ctx, rCursorC, '#ff2a6d', 'C', plotMargin, plotWidth, plotHeight, screenYC);
+      drawHorizontalCursorLabel(ctx, rCursorD, '#39ff14', 'D', plotMargin, plotWidth, plotHeight, screenYD);
     }
 
     if (crossCursorMode) {
-      drawCursorLabel(ctx, rCursorE, '#ffd700', 'E', plotMargin, plotWidth, minX, scaleX, panX);
-      drawCursorLabel(ctx, rCursorG, '#00ffff', 'G', plotMargin, plotWidth, minX, scaleX, panX);
-      drawHorizontalCursorLabel(ctx, rCursorF, '#ffd700', 'F', plotMargin, plotWidth, plotHeight, screenYF);
-      drawHorizontalCursorLabel(ctx, rCursorH, '#00ffff', 'H', plotMargin, plotWidth, plotHeight, screenYH);
+      drawCursorLabel(ctx, rCursorE, '#ff2a6d', 'E', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorG, '#39ff14', 'G', plotMargin, plotWidth, minX, scaleX, panX);
+      drawHorizontalCursorLabel(ctx, rCursorF, '#ff2a6d', 'F', plotMargin, plotWidth, plotHeight, screenYF);
+      drawHorizontalCursorLabel(ctx, rCursorH, '#39ff14', 'H', plotMargin, plotWidth, plotHeight, screenYH);
     }
 
     const overlayChannel = singleChannelMode
