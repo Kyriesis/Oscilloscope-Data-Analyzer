@@ -516,11 +516,13 @@ function App() {
   const handleSaveImage = async () => {
     const temp = createScreenshotCanvas();
     if (!temp) return;
+    const nameBase = currentFilename ? currentFilename.replace(/\s+/g, '_') : 'oscilloscope';
+    const suggestedName = `${nameBase}_${Date.now()}.png`;
     try {
       const picker = (window as unknown as { showSaveFilePicker?: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker;
       if (picker) {
         const handle = await picker({
-          suggestedName: `oscilloscope-${Date.now()}.png`,
+          suggestedName,
           types: [
             { description: 'PNG Image', accept: { 'image/png': ['.png'] } },
             { description: 'JPEG Image', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } },
@@ -542,7 +544,7 @@ function App() {
     const url = temp.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = url;
-    a.download = `oscilloscope-${Date.now()}.png`;
+    a.download = suggestedName;
     a.click();
   };
 
