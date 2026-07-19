@@ -515,12 +515,24 @@ function App() {
   }
 
   const handleCopyImage = async () => {
-    const temp = createScreenshotCanvas(true);
+    const temp = createScreenshotCanvas(false);
     if (!temp) return;
+    const rect = viewRef.current?.getBoundingClientRect();
+    if (!rect) return;
     try {
+      const dataUrl = temp.toDataURL('image/png');
       const blob = await new Promise<Blob | null>((resolve) => temp.toBlob(resolve, 'image/png'));
       if (!blob) return;
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      // 同时提供 image/png（高分辨率）和 text/html（带 CSS 显示尺寸）
+      // 画图类软件用 PNG 按像素 1:1 显示保持清晰；Word 等文档软件按 HTML 尺寸显示避免过大
+      const html = `<img src="${dataUrl}" style="width:${rect.width}px;height:${rect.height}px;" />`;
+      const htmlBlob = new Blob([html], { type: 'text/html' });
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'image/png': blob,
+          'text/html': htmlBlob,
+        })
+      ]);
     } catch {
       // 复制失败时静默忽略
     }
