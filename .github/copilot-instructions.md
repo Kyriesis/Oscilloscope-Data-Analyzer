@@ -1,3 +1,7 @@
 - This repository contains a Vite + React + TypeScript web app for oscilloscope CSV waveform analysis.
-- The app supports CSV upload, waveform rendering, zoom, pan, and measurement cursor functionality.
-- Keep future changes focused on improving waveform interaction, CSV parsing, and measurement accuracy.
+- Supported CSV formats: Yokogawa Xviewer, Rigol, and similar oscilloscope exports.
+- Core features: multi-channel waveform rendering, time-axis restore from HResolution/HOffset, dark oscilloscope UI, channel visibility/reordering, custom aliases, channel inversion, sequence lock (persisted to localStorage), Zoom X, Zoom Y, pan, and cursor measurement modes (vertical/horizontal/cross).
+- Measurement cursor lines and labels are rendered with a unified 0.8 line width and a uniform neon-pink color (#ff2a6d) for clarity against channel waveforms.
+- Time and frequency units auto-switch (ms/μs, Hz/kHz/MHz) based on the current timebase or ΔT magnitude.
+- Y-axis [V/div] values are rounded to whole integers.
+- Keep future changes focused on improving waveform interaction, CSV parsing robustness, measurement accuracy, and UI readability while maintaining the existing no-external-chart-library constraint.
