@@ -1534,6 +1534,7 @@ function App() {
   const handleContextMenu = (event: MouseEvent<HTMLCanvasElement>) => {
     if (cursorMode) {
       event.preventDefault();
+      if (!event.shiftKey) return;
       if (pointerMovedRef.current) return;
       if (hoveredMeasureLabel) return;
       const dataX = getDataXFromMouse(event.clientX);
@@ -1543,6 +1544,7 @@ function App() {
 
     if (horizontalCursorMode) {
       event.preventDefault();
+      if (!event.shiftKey) return;
       if (pointerMovedRef.current) return;
       if (hoveredHorizontalMeasureLabel || hoveredHorizontalCursor) return;
       const ratio = getMouseRatioY(event.clientY);
@@ -1552,6 +1554,7 @@ function App() {
 
     if (crossCursorMode) {
       event.preventDefault();
+      if (!event.shiftKey) return;
       if (pointerMovedRef.current) return;
       if (hoveredCrossMeasureLabelX || hoveredCrossMeasureLabelY || hoveredCrossCursor) return;
       const dataX = getDataXFromMouse(event.clientX);
