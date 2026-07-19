@@ -487,6 +487,65 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
+  function createScreenshotCanvas(): HTMLCanvasElement | null {
+    const base = baseCanvasRef.current;
+    const overlay = overlayCanvasRef.current;
+    if (!base || !overlay) return null;
+    const temp = document.createElement('canvas');
+    temp.width = base.width;
+    temp.height = base.height;
+    const ctx = temp.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(base, 0, 0);
+    ctx.drawImage(overlay, 0, 0);
+    return temp;
+  }
+
+  const handleCopyImage = async () => {
+    const temp = createScreenshotCanvas();
+    if (!temp) return;
+    try {
+      const blob = await new Promise<Blob | null>((resolve) => temp.toBlob(resolve, 'image/png'));
+      if (!blob) return;
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    } catch {
+      // 复制失败时静默忽略
+    }
+  };
+
+  const handleSaveImage = async () => {
+    const temp = createScreenshotCanvas();
+    if (!temp) return;
+    try {
+      const picker = (window as unknown as { showSaveFilePicker?: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker;
+      if (picker) {
+        const handle = await picker({
+          suggestedName: `oscilloscope-${Date.now()}.png`,
+          types: [
+            { description: 'PNG Image', accept: { 'image/png': ['.png'] } },
+            { description: 'JPEG Image', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } },
+          ],
+        });
+        const ext = handle.name.split('.').pop()?.toLowerCase() || 'png';
+        const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
+        const blob = await new Promise<Blob | null>((resolve) => temp.toBlob(resolve, mime, 0.95));
+        if (!blob) return;
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return;
+      }
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return;
+    }
+    // 回退：直接下载 PNG
+    const url = temp.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `oscilloscope-${Date.now()}.png`;
+    a.click();
+  };
+
   const handleImportConditions = async (file: File) => {
     try {
       const text = await file.text();
@@ -2100,6 +2159,22 @@ function App() {
           </div>
 
           <div className="test-condition-form">
+            <div className="test-condition-image-actions">
+              <button
+                type="button"
+                className="test-condition-btn"
+                onClick={handleCopyImage}
+              >
+                复制图像
+              </button>
+              <button
+                type="button"
+                className="test-condition-btn"
+                onClick={handleSaveImage}
+              >
+                保存图像
+              </button>
+            </div>
             <label htmlFor="test-temp">温度(°C)</label>
             <input
               id="test-temp"
