@@ -1152,13 +1152,13 @@ function App() {
       if (rCursorE !== null && screenYF !== null) {
         const screenXE = plotMargin.left + (rCursorE - minX) * scaleX + panX;
         ctx.beginPath();
-        ctx.arc(screenXE, screenYF, 4, 0, Math.PI * 2);
+        ctx.arc(screenXE, screenYF, 2, 0, Math.PI * 2);
         ctx.fill();
       }
       if (rCursorG !== null && screenYH !== null) {
         const screenXG = plotMargin.left + (rCursorG - minX) * scaleX + panX;
         ctx.beginPath();
-        ctx.arc(screenXG, screenYH, 4, 0, Math.PI * 2);
+        ctx.arc(screenXG, screenYH, 2, 0, Math.PI * 2);
         ctx.fill();
       }
     }
