@@ -191,7 +191,8 @@ function App() {
   const draggedChannelRef = useRef<string | null>(null);
   const zoomYJustSelectedRef = useRef<string | null>(null);
   const viewRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const importConditionsRef = useRef<HTMLInputElement | null>(null);
 
   // 拖拽高性能渲染：拖拽期间把光标/标注位置放到 ref，直接通过 rAF 绘制，绕过 React state
@@ -211,6 +212,8 @@ function App() {
   };
   const liveDragValuesRef = useRef<LiveDragValues>({});
   const rafScheduledRef = useRef(false);
+  type RenderFlags = { base: boolean; overlay: boolean };
+  const renderFlagsRef = useRef<RenderFlags>({ base: false, overlay: false });
   const panelSyncScheduledRef = useRef(false);
   const canvasSizeRef = useRef<{ width: number; height: number; dpr: number }>({ width: 0, height: 0, dpr: 1 });
 
@@ -634,7 +637,7 @@ function App() {
   };
 
   const measureLabelText = (text: string): number => {
-    const ctx = canvasRef.current?.getContext('2d');
+    const ctx = overlayCanvasRef.current?.getContext('2d');
     if (!ctx) return 0;
     ctx.font = '12px Inter, ui-sans-serif, system-ui';
     return ctx.measureText(text).width;
@@ -914,7 +917,9 @@ function App() {
     );
   };
 
-  function scheduleRender() {
+  function scheduleRender(type: 'base' | 'overlay' | 'both' = 'overlay') {
+    if (type === 'base' || type === 'both') renderFlagsRef.current.base = true;
+    if (type === 'overlay' || type === 'both') renderFlagsRef.current.overlay = true;
     if (rafScheduledRef.current) return;
     rafScheduledRef.current = true;
     requestAnimationFrame(() => {
@@ -962,9 +967,10 @@ function App() {
   }
 
   function renderFrame() {
-    const canvas = canvasRef.current;
+    const baseCanvas = baseCanvasRef.current;
+    const overlayCanvas = overlayCanvasRef.current;
     const wrapper = viewRef.current;
-    if (!canvas || !wrapper) return;
+    if (!baseCanvas || !overlayCanvas || !wrapper) return;
 
     const rect = wrapper.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
@@ -972,29 +978,66 @@ function App() {
     const targetHeight = Math.max(1, Math.floor(rect.height * dpr));
 
     if (
-      canvas.width !== targetWidth ||
-      canvas.height !== targetHeight ||
+      baseCanvas.width !== targetWidth ||
+      baseCanvas.height !== targetHeight ||
       canvasSizeRef.current.dpr !== dpr
     ) {
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
+      baseCanvas.width = targetWidth;
+      baseCanvas.height = targetHeight;
+      baseCanvas.style.width = `${rect.width}px`;
+      baseCanvas.style.height = `${rect.height}px`;
+      overlayCanvas.width = targetWidth;
+      overlayCanvas.height = targetHeight;
+      overlayCanvas.style.width = `${rect.width}px`;
+      overlayCanvas.style.height = `${rect.height}px`;
       canvasSizeRef.current = { width: targetWidth, height: targetHeight, dpr };
+      renderFlagsRef.current = { base: true, overlay: true };
     }
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, rect.width, rect.height);
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = 'source-over';
 
     const width = rect.width;
     const height = rect.height;
     const plotWidth = Math.max(1, width - plotMargin.left - plotMargin.right);
     const plotHeight = Math.max(1, height - plotMargin.top - plotMargin.bottom);
 
+    const { minX, maxX } = getTimeRange(data, channels);
+    const xSpan = maxX - minX || 1;
+    const scaleX = (plotWidth / xSpan) * zoomX;
+
+    if (renderFlagsRef.current.base) {
+      const baseCtx = baseCanvas.getContext('2d');
+      if (baseCtx) {
+        baseCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        baseCtx.clearRect(0, 0, width, height);
+        baseCtx.globalAlpha = 1;
+        baseCtx.globalCompositeOperation = 'source-over';
+        renderBase(baseCtx, width, height, plotWidth, plotHeight, minX, maxX, scaleX);
+      }
+      renderFlagsRef.current.base = false;
+    }
+
+    if (renderFlagsRef.current.overlay) {
+      const overlayCtx = overlayCanvas.getContext('2d');
+      if (overlayCtx) {
+        overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        overlayCtx.clearRect(0, 0, width, height);
+        overlayCtx.globalAlpha = 1;
+        overlayCtx.globalCompositeOperation = 'source-over';
+        renderOverlay(overlayCtx, width, height, plotWidth, plotHeight, minX, maxX, scaleX);
+      }
+      renderFlagsRef.current.overlay = false;
+    }
+  }
+
+  function renderBase(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    plotWidth: number,
+    plotHeight: number,
+    minX: number,
+    maxX: number,
+    scaleX: number
+  ) {
     ctx.fillStyle = '#050505';
     ctx.fillRect(0, 0, width, height);
 
@@ -1012,23 +1055,6 @@ function App() {
     }
 
     const totalChannels = channels.length;
-    const { minX, maxX } = getTimeRange(data, channels);
-    const xSpan = maxX - minX || 1;
-    const scaleX = (plotWidth / xSpan) * zoomX;
-
-    // 拖拽期间优先使用 live drag 值，避免触发 React 重渲染
-    const rCursorA = liveDragValuesRef.current.cursorA !== undefined ? liveDragValuesRef.current.cursorA : cursorA;
-    const rCursorB = liveDragValuesRef.current.cursorB !== undefined ? liveDragValuesRef.current.cursorB : cursorB;
-    const rCursorC = liveDragValuesRef.current.cursorC !== undefined ? liveDragValuesRef.current.cursorC : cursorC;
-    const rCursorD = liveDragValuesRef.current.cursorD !== undefined ? liveDragValuesRef.current.cursorD : cursorD;
-    const rCursorE = liveDragValuesRef.current.cursorE !== undefined ? liveDragValuesRef.current.cursorE : cursorE;
-    const rCursorF = liveDragValuesRef.current.cursorF !== undefined ? liveDragValuesRef.current.cursorF : cursorF;
-    const rCursorG = liveDragValuesRef.current.cursorG !== undefined ? liveDragValuesRef.current.cursorG : cursorG;
-    const rCursorH = liveDragValuesRef.current.cursorH !== undefined ? liveDragValuesRef.current.cursorH : cursorH;
-    const rMeasureLabelY = liveDragValuesRef.current.measureLabelY !== undefined ? liveDragValuesRef.current.measureLabelY : measureLabelY;
-    const rHorizontalMeasureLabelX = liveDragValuesRef.current.horizontalMeasureLabelX !== undefined ? liveDragValuesRef.current.horizontalMeasureLabelX : horizontalMeasureLabelX;
-    const rCrossMeasureLabelY = liveDragValuesRef.current.crossMeasureLabelY !== undefined ? liveDragValuesRef.current.crossMeasureLabelY : crossMeasureLabelY;
-    const rCrossMeasureLabelX = liveDragValuesRef.current.crossMeasureLabelX !== undefined ? liveDragValuesRef.current.crossMeasureLabelX : crossMeasureLabelX;
 
     drawGrid(ctx, plotMargin, plotWidth, plotHeight);
     drawAxes(ctx, plotMargin, plotWidth, plotHeight, minX, maxX, scaleX, panX);
@@ -1043,6 +1069,54 @@ function App() {
         drawChannelWaveform(ctx, ch, index, totalChannels, plotMargin, plotWidth, plotHeight, scaleX, panX, minX, activeChannelId, horizontalCursorMode, crossCursorMode);
       }
     });
+
+    ctx.restore();
+
+    const singleChannelMode = zoomYMode || horizontalCursorMode || crossCursorMode;
+    channels.forEach((ch, index) => {
+      drawChannelLabels(ctx, ch, index, totalChannels, plotMargin, plotHeight, labelChannelId, singleChannelMode);
+    });
+
+    const overlayChannel = singleChannelMode
+      ? zoomYMode
+        ? channels.find((ch) => ch.id === selectedChannelId && ch.visible) ?? null
+        : activeChannel
+      : null;
+    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX, testTemp, testVoltage, singleChannelMode, overlayChannel, totalChannels, currentFilename);
+  }
+
+  function renderOverlay(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number,
+    plotWidth: number,
+    plotHeight: number,
+    minX: number,
+    maxX: number,
+    scaleX: number
+  ) {
+    if (channels.length === 0) return;
+
+    const totalChannels = channels.length;
+
+    // 拖拽期间优先使用 live drag 值，避免触发 React state
+    const rCursorA = liveDragValuesRef.current.cursorA !== undefined ? liveDragValuesRef.current.cursorA : cursorA;
+    const rCursorB = liveDragValuesRef.current.cursorB !== undefined ? liveDragValuesRef.current.cursorB : cursorB;
+    const rCursorC = liveDragValuesRef.current.cursorC !== undefined ? liveDragValuesRef.current.cursorC : cursorC;
+    const rCursorD = liveDragValuesRef.current.cursorD !== undefined ? liveDragValuesRef.current.cursorD : cursorD;
+    const rCursorE = liveDragValuesRef.current.cursorE !== undefined ? liveDragValuesRef.current.cursorE : cursorE;
+    const rCursorF = liveDragValuesRef.current.cursorF !== undefined ? liveDragValuesRef.current.cursorF : cursorF;
+    const rCursorG = liveDragValuesRef.current.cursorG !== undefined ? liveDragValuesRef.current.cursorG : cursorG;
+    const rCursorH = liveDragValuesRef.current.cursorH !== undefined ? liveDragValuesRef.current.cursorH : cursorH;
+    const rMeasureLabelY = liveDragValuesRef.current.measureLabelY !== undefined ? liveDragValuesRef.current.measureLabelY : measureLabelY;
+    const rHorizontalMeasureLabelX = liveDragValuesRef.current.horizontalMeasureLabelX !== undefined ? liveDragValuesRef.current.horizontalMeasureLabelX : horizontalMeasureLabelX;
+    const rCrossMeasureLabelY = liveDragValuesRef.current.crossMeasureLabelY !== undefined ? liveDragValuesRef.current.crossMeasureLabelY : crossMeasureLabelY;
+    const rCrossMeasureLabelX = liveDragValuesRef.current.crossMeasureLabelX !== undefined ? liveDragValuesRef.current.crossMeasureLabelX : crossMeasureLabelX;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(plotMargin.left, plotMargin.top, plotWidth, plotHeight);
+    ctx.clip();
 
     if (cursorMode) {
       drawCursorLine(ctx, rCursorA, '#ff2a6d', plotMargin, plotHeight, minX, scaleX, panX);
@@ -1076,11 +1150,6 @@ function App() {
 
     ctx.restore();
 
-    const singleChannelMode = zoomYMode || horizontalCursorMode || crossCursorMode;
-    channels.forEach((ch, index) => {
-      drawChannelLabels(ctx, ch, index, totalChannels, plotMargin, plotHeight, labelChannelId, singleChannelMode);
-    });
-
     if (cursorMode) {
       drawCursorLabel(ctx, rCursorA, '#ff2a6d', 'A', plotMargin, plotWidth, minX, scaleX, panX);
       drawCursorLabel(ctx, rCursorB, '#ff2a6d', 'B', plotMargin, plotWidth, minX, scaleX, panX);
@@ -1098,13 +1167,6 @@ function App() {
       drawHorizontalCursorLabel(ctx, rCursorF, '#ff2a6d', 'F', plotMargin, plotWidth, plotHeight, screenYF);
       drawHorizontalCursorLabel(ctx, rCursorH, '#ff2a6d', 'H', plotMargin, plotWidth, plotHeight, screenYH);
     }
-
-    const overlayChannel = singleChannelMode
-      ? zoomYMode
-        ? channels.find((ch) => ch.id === selectedChannelId && ch.visible) ?? null
-        : activeChannel
-      : null;
-    drawOverlay(ctx, data, visibleChannels, width, plotMargin, plotWidth, minX, maxX, zoomX, testTemp, testVoltage, singleChannelMode, overlayChannel, totalChannels, currentFilename);
   }
 
   const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
@@ -1206,7 +1268,7 @@ function App() {
         const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
         const screenY = event.clientY - rect.top;
         liveDragValuesRef.current.measureLabelY = clamp((screenY - plotMargin.top) / plotHeight, 0, 1);
-        scheduleRender();
+        scheduleRender('overlay');
         schedulePanelSync();
       }
       return;
@@ -1217,7 +1279,7 @@ function App() {
       if (dataX !== null) {
         if (draggingCursor === 'A') liveDragValuesRef.current.cursorA = dataX;
         else liveDragValuesRef.current.cursorB = dataX;
-        scheduleRender();
+        scheduleRender('overlay');
         schedulePanelSync();
       }
       return;
@@ -1229,7 +1291,7 @@ function App() {
         const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
         const screenX = event.clientX - rect.left;
         liveDragValuesRef.current.horizontalMeasureLabelX = clamp((screenX - plotMargin.left) / plotWidth, 0, 1);
-        scheduleRender();
+        scheduleRender('overlay');
         schedulePanelSync();
       }
       return;
@@ -1240,7 +1302,7 @@ function App() {
       if (ratio !== null) {
         if (draggingHorizontalCursor === 'C') liveDragValuesRef.current.cursorC = ratio;
         else liveDragValuesRef.current.cursorD = ratio;
-        scheduleRender();
+        scheduleRender('overlay');
         schedulePanelSync();
       }
       return;
@@ -1252,7 +1314,7 @@ function App() {
         const plotHeight = Math.max(1, rect.height - plotMargin.top - plotMargin.bottom);
         const screenY = event.clientY - rect.top;
         liveDragValuesRef.current.crossMeasureLabelY = clamp((screenY - plotMargin.top) / plotHeight, 0, 1);
-        scheduleRender();
+        scheduleRender('overlay');
         schedulePanelSync();
       }
       return;
@@ -1264,7 +1326,7 @@ function App() {
         const plotWidth = Math.max(1, rect.width - plotMargin.left - plotMargin.right);
         const screenX = event.clientX - rect.left;
         liveDragValuesRef.current.crossMeasureLabelX = clamp((screenX - plotMargin.left) / plotWidth, 0, 1);
-        scheduleRender();
+        scheduleRender('overlay');
         schedulePanelSync();
       }
       return;
@@ -1294,7 +1356,7 @@ function App() {
           else liveDragValuesRef.current.cursorH = ratio;
         }
       }
-      scheduleRender();
+      scheduleRender('overlay');
       schedulePanelSync();
       return;
     }
@@ -1835,10 +1897,15 @@ function App() {
     if (nextPanX !== panX) setPanX(nextPanX);
   }, [zoomX, panX, resizeTick]);
 
-  // 绘制示波器画面：状态变化时通过 renderFrame 重绘
+  // 绘制静态底层：数据、通道、缩放、平移、模式切换等变化时重绘 Base 层
   useEffect(() => {
-    renderFrame();
-  }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, hoveredChannelId, draggingChannelId, selectedChannelId, cursorMode, cursorA, cursorB, hoveredCursor, draggingCursor, measureLabelY, draggingMeasureLabel, hoveredMeasureLabel, horizontalCursorMode, cursorC, cursorD, hoveredHorizontalCursor, draggingHorizontalCursor, horizontalMeasureLabelX, draggingHorizontalMeasureLabel, hoveredHorizontalMeasureLabel, crossCursorMode, cursorE, cursorF, cursorG, cursorH, hoveredCrossCursor, draggingCrossCursor, crossMeasureLabelY, crossMeasureLabelX, draggingCrossMeasureLabelX, draggingCrossMeasureLabelY, hoveredCrossMeasureLabelX, hoveredCrossMeasureLabelY, activeChannel, testTemp, testVoltage, currentFilename]);
+    scheduleRender('both');
+  }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, horizontalCursorMode, crossCursorMode, selectedChannelId, activeChannel, testTemp, testVoltage, currentFilename, labelChannelId]);
+
+  // 绘制动态上层：光标位置、悬停、拖拽等变化时只重绘 Overlay 层
+  useEffect(() => {
+    scheduleRender('overlay');
+  }, [cursorA, cursorB, hoveredCursor, draggingCursor, measureLabelY, draggingMeasureLabel, hoveredMeasureLabel, cursorC, cursorD, hoveredHorizontalCursor, draggingHorizontalCursor, horizontalMeasureLabelX, draggingHorizontalMeasureLabel, hoveredHorizontalMeasureLabel, cursorE, cursorF, cursorG, cursorH, hoveredCrossCursor, draggingCrossCursor, crossMeasureLabelY, crossMeasureLabelX, draggingCrossMeasureLabelX, draggingCrossMeasureLabelY, hoveredCrossMeasureLabelX, hoveredCrossMeasureLabelY, hoveredChannelId]);
 
   // 计算每个通道在光标处的值
   const cursorValues = useMemo(() => {
@@ -1972,8 +2039,10 @@ function App() {
           onWheel={handleWheel}
         >
           <div ref={viewRef} className="canvas-frame">
+            <canvas className="base" ref={baseCanvasRef} />
             <canvas
-              ref={canvasRef}
+              className="overlay"
+              ref={overlayCanvasRef}
               style={{
                 cursor: dragging
                   ? 'grabbing'

@@ -157,8 +157,16 @@ input {
   touch-action: none;
 }
 
-.canvas-frame canvas:active {
-  cursor: grabbing;
+.canvas-frame canvas.base {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.canvas-frame canvas.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
 }
 
 .display-hint {
