@@ -516,7 +516,7 @@ function App() {
   const handleSaveImage = async () => {
     const temp = createScreenshotCanvas();
     if (!temp) return;
-    const nameBase = currentFilename ? currentFilename.replace(/\s+/g, '_') : 'oscilloscope';
+    const nameBase = currentFilename ? currentFilename.replace(/\.csv$/i, '').replace(/\s+/g, '_') : 'oscilloscope';
     const suggestedName = `${nameBase}_${Date.now()}.png`;
     try {
       const picker = (window as unknown as { showSaveFilePicker?: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker;
