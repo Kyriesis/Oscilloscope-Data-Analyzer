@@ -487,22 +487,35 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
-  function createScreenshotCanvas(): HTMLCanvasElement | null {
+  function createScreenshotCanvas(forClipboard = false): HTMLCanvasElement | null {
     const base = baseCanvasRef.current;
     const overlay = overlayCanvasRef.current;
-    if (!base || !overlay) return null;
+    const wrapper = viewRef.current;
+    if (!base || !overlay || !wrapper) return null;
+    const rect = wrapper.getBoundingClientRect();
     const temp = document.createElement('canvas');
-    temp.width = base.width;
-    temp.height = base.height;
+    if (forClipboard) {
+      // 复制时按 CSS 像素尺寸导出，避免目标应用按 96 DPI 重新缩放导致模糊
+      temp.width = rect.width;
+      temp.height = rect.height;
+    } else {
+      temp.width = base.width;
+      temp.height = base.height;
+    }
     const ctx = temp.getContext('2d');
     if (!ctx) return null;
-    ctx.drawImage(base, 0, 0);
-    ctx.drawImage(overlay, 0, 0);
+    if (forClipboard) {
+      ctx.drawImage(base, 0, 0, rect.width, rect.height);
+      ctx.drawImage(overlay, 0, 0, rect.width, rect.height);
+    } else {
+      ctx.drawImage(base, 0, 0);
+      ctx.drawImage(overlay, 0, 0);
+    }
     return temp;
   }
 
   const handleCopyImage = async () => {
-    const temp = createScreenshotCanvas();
+    const temp = createScreenshotCanvas(true);
     if (!temp) return;
     try {
       const blob = await new Promise<Blob | null>((resolve) => temp.toBlob(resolve, 'image/png'));
