@@ -100,25 +100,25 @@ describe('formatVoltagePerDiv', () => {
     expect(formatVoltagePerDiv(0, 'V')).toBe('[0V/div]');
   });
 
-  it('rounds volts to integer', () => {
-    expect(formatVoltagePerDiv(1.234, 'V')).toBe('[1V/div]');
-    expect(formatVoltagePerDiv(1.6, 'V')).toBe('[2V/div]');
+  it('formats volts with 3 decimals', () => {
+    expect(formatVoltagePerDiv(1.234, 'V')).toBe('[1.234V/div]');
+    expect(formatVoltagePerDiv(1.6, 'V')).toBe('[1.600V/div]');
   });
 
-  it('rounds millivolts to integer', () => {
-    expect(formatVoltagePerDiv(0.1234, 'V')).toBe('[123mV/div]');
+  it('formats millivolts with 3 decimals', () => {
+    expect(formatVoltagePerDiv(0.1234, 'V')).toBe('[123.400mV/div]');
   });
 
-  it('rounds microvolts to integer', () => {
-    expect(formatVoltagePerDiv(0.0001234, 'V')).toBe('[123μV/div]');
+  it('formats microvolts with 3 decimals', () => {
+    expect(formatVoltagePerDiv(0.0001234, 'V')).toBe('[123.400μV/div]');
   });
 
-  it('rounds nanovolts to integer', () => {
-    expect(formatVoltagePerDiv(1.6e-10, 'V')).toBe('[1nV/div]');
+  it('formats nanovolts with 3 decimals', () => {
+    expect(formatVoltagePerDiv(1.6e-10, 'V')).toBe('[0.160nV/div]');
   });
 
-  it('shows 1 as fallback when rounding to 0 in nV', () => {
-    expect(formatVoltagePerDiv(0.2e-9, 'V')).toBe('[1nV/div]');
+  it('shows 0.200nV/div without rounding up to 1', () => {
+    expect(formatVoltagePerDiv(0.2e-9, 'V')).toBe('[0.200nV/div]');
   });
 });
 

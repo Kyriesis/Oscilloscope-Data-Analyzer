@@ -39,19 +39,15 @@ export function formatVoltagePerDiv(voltsPerDiv: number, unit: string): string {
   if (!Number.isFinite(voltsPerDiv) || voltsPerDiv <= 0) return `[0${unit}/div]`;
   const abs = Math.abs(voltsPerDiv);
   if (abs >= 1) {
-    const rounded = Math.round(abs);
-    return `[${(rounded || 1).toFixed(0)}${unit}/div]`;
+    return `[${abs.toFixed(3)}${unit}/div]`;
   }
   if (abs >= 1e-3) {
-    const rounded = Math.round(abs * 1e3);
-    return `[${(rounded || 1).toFixed(0)}m${unit}/div]`;
+    return `[${(abs * 1e3).toFixed(3)}m${unit}/div]`;
   }
   if (abs >= 1e-6) {
-    const rounded = Math.round(abs * 1e6);
-    return `[${(rounded || 1).toFixed(0)}μ${unit}/div]`;
+    return `[${(abs * 1e6).toFixed(3)}μ${unit}/div]`;
   }
-  const rounded = Math.round(abs * 1e9);
-  return `[${(rounded || 1).toFixed(0)}n${unit}/div]`;
+  return `[${(abs * 1e9).toFixed(3)}n${unit}/div]`;
 }
 
 export function formatDeltaX(seconds: number): string {
