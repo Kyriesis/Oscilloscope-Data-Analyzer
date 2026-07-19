@@ -1146,6 +1146,21 @@ function App() {
       drawMeasureLine(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, rCursorE !== null && rCursorG !== null ? formatDeltaX(rCursorG - rCursorE) : undefined);
       drawCrossMeasureXLabel(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
       drawHorizontalMeasureAnnotation(ctx, dataYF, dataYH, rCrossMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYF, screenYH);
+
+      // 在纵横十字交点处绘制实心圆点，便于识别两个坐标交点
+      ctx.fillStyle = '#ff2a6d';
+      if (rCursorE !== null && screenYF !== null) {
+        const screenXE = plotMargin.left + (rCursorE - minX) * scaleX + panX;
+        ctx.beginPath();
+        ctx.arc(screenXE, screenYF, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (rCursorG !== null && screenYH !== null) {
+        const screenXG = plotMargin.left + (rCursorG - minX) * scaleX + panX;
+        ctx.beginPath();
+        ctx.arc(screenXG, screenYH, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     ctx.restore();
