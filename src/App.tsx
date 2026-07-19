@@ -2004,7 +2004,7 @@ function App() {
   // 绘制静态底层：数据、通道、缩放、平移、模式切换等变化时重绘 Base 层
   useEffect(() => {
     scheduleRender('both');
-  }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, horizontalCursorMode, crossCursorMode, selectedChannelId, activeChannel, testTemp, testVoltage, currentFilename, labelChannelId]);
+  }, [channels, visibleChannels, data, zoomX, panX, error, resizeTick, zoomYMode, cursorMode, horizontalCursorMode, crossCursorMode, selectedChannelId, activeChannel, testTemp, testVoltage, currentFilename, labelChannelId]);
 
   // 绘制动态上层：光标位置、悬停、拖拽等变化时只重绘 Overlay 层
   useEffect(() => {
