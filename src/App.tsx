@@ -1186,7 +1186,7 @@ function App() {
 
     channels.forEach((ch, index) => {
       if (ch.visible) {
-        drawChannelWaveform(ctx, ch, index, totalChannels, plotMargin, plotWidth, plotHeight, scaleX, panX, minX, maxX, activeChannelId, horizontalCursorMode, crossCursorMode);
+        drawChannelWaveform(ctx, ch, index, totalChannels, plotMargin, plotWidth, plotHeight, scaleX, panX, minX, activeChannelId, horizontalCursorMode, crossCursorMode);
       }
     });
 
@@ -2076,87 +2076,85 @@ function App() {
   return (
     <div className="app-shell">
       <header className="scope-header">
-        <div className="header-top">
-          <h1>Oscilloscope Data Analyzer</h1>
-          <div className="scope-toolbar">
-            <button
-              type="button"
-              className={`toolbar-btn ${zoomXMode ? 'active' : ''}`}
-              onClick={() => setZoomXMode((v) => !v)}
-              title="激活后滚轮缩放 X 轴"
-            >
-              Zoom X
-            </button>
-            <button
-              type="button"
-              className={`toolbar-btn ${zoomYMode ? 'active' : ''}`}
-              onClick={() => {
-                setZoomYMode((v) => !v);
-                setCursorMode(false);
-                setHorizontalCursorMode(false);
-                setCrossCursorMode(false);
-                setHoveredCrossCursor(null);
-                setDraggingCrossCursor(null);
-                setHoveredCrossMeasureLabelX(false);
-                setDraggingCrossMeasureLabelX(false);
-                setHoveredCrossMeasureLabelY(false);
-                setDraggingCrossMeasureLabelY(false);
-                setSelectedChannelId(null);
-              }}
-              title="激活后点击/拖动单条曲线进行 Y 方向操作"
-            >
-              Zoom Y
-            </button>
-            <button
-              type="button"
-              className={`toolbar-btn ${cursorMode ? 'active' : ''}`}
-              onClick={toggleCursorMode}
-              title="激活后 Shift+左键设置光标 A，右键设置光标 B，可拖动测量线"
-            >
-              纵向光标
-            </button>
-            <button
-              type="button"
-              className={`toolbar-btn ${horizontalCursorMode ? 'active' : ''}`}
-              onClick={toggleHorizontalCursorMode}
-              title="激活后选择通道，Shift+左键设置光标 C，右键设置光标 D，可拖动测量线"
-            >
-              横向光标
-            </button>
-            <button
-              type="button"
-              className={`toolbar-btn ${crossCursorMode ? 'active' : ''}`}
-              onClick={toggleCrossCursorMode}
-              title="激活后选择通道，Shift+左键设置十字线 EF，右键设置十字线 GH，可拖动测量线"
-            >
-              纵横光标
-            </button>
-            <button
-              type="button"
-              className="toolbar-btn"
-              disabled={!cursorMode && !horizontalCursorMode && !crossCursorMode}
-              onClick={handleClearCursors}
-              title="清除当前测量模式下的光标和标注"
-            >
-              清除光标
-            </button>
-            <button
-              type="button"
-              className="toolbar-btn"
-              onClick={resetView}
-              title="重置视图"
-            >
-              重置视图
-            </button>
-            <button
-              type="button"
-              className={`toolbar-btn ${showHelp ? 'active' : ''}`}
-              onClick={() => setShowHelp((v) => !v)}
-              title="打开/关闭帮助说明"
-            >
-              帮助
-            </button>
-          </div>
+        <h1>Oscilloscope Data Analyzer</h1>
+        <div className="scope-toolbar">
+          <button
+            type="button"
+            className={`toolbar-btn ${zoomXMode ? 'active' : ''}`}
+            onClick={() => setZoomXMode((v) => !v)}
+            title="激活后滚轮缩放 X 轴"
+          >
+            Zoom X
+          </button>
+          <button
+            type="button"
+            className={`toolbar-btn ${zoomYMode ? 'active' : ''}`}
+            onClick={() => {
+              setZoomYMode((v) => !v);
+              setCursorMode(false);
+              setHorizontalCursorMode(false);
+              setCrossCursorMode(false);
+              setHoveredCrossCursor(null);
+              setDraggingCrossCursor(null);
+              setHoveredCrossMeasureLabelX(false);
+              setDraggingCrossMeasureLabelX(false);
+              setHoveredCrossMeasureLabelY(false);
+              setDraggingCrossMeasureLabelY(false);
+              setSelectedChannelId(null);
+            }}
+            title="激活后点击/拖动单条曲线进行 Y 方向操作"
+          >
+            Zoom Y
+          </button>
+          <button
+            type="button"
+            className={`toolbar-btn ${cursorMode ? 'active' : ''}`}
+            onClick={toggleCursorMode}
+            title="激活后 Shift+左键设置光标 A，右键设置光标 B，可拖动测量线"
+          >
+            纵向光标
+          </button>
+          <button
+            type="button"
+            className={`toolbar-btn ${horizontalCursorMode ? 'active' : ''}`}
+            onClick={toggleHorizontalCursorMode}
+            title="激活后选择通道，Shift+左键设置光标 C，右键设置光标 D，可拖动测量线"
+          >
+            横向光标
+          </button>
+          <button
+            type="button"
+            className={`toolbar-btn ${crossCursorMode ? 'active' : ''}`}
+            onClick={toggleCrossCursorMode}
+            title="激活后选择通道，Shift+左键设置十字线 EF，右键设置十字线 GH，可拖动测量线"
+          >
+            纵横光标
+          </button>
+          <button
+            type="button"
+            className="toolbar-btn"
+            disabled={!cursorMode && !horizontalCursorMode && !crossCursorMode}
+            onClick={handleClearCursors}
+            title="清除当前测量模式下的光标和标注"
+          >
+            清除光标
+          </button>
+          <button
+            type="button"
+            className="toolbar-btn"
+            onClick={resetView}
+            title="重置视图"
+          >
+            重置视图
+          </button>
+          <button
+            type="button"
+            className={`toolbar-btn ${showHelp ? 'active' : ''}`}
+            onClick={() => setShowHelp((v) => !v)}
+            title="打开/关闭帮助说明"
+          >
+            帮助
+          </button>
         </div>
         <div className="scope-meta">
           {data ? (
@@ -2715,106 +2713,6 @@ function drawAxes(
   ctx.textAlign = 'left';
 }
 
-/**
- * 按可见像素列对原始点做自适应降采样。
- * 当可见范围内点数较少时直接保留原始点，避免单点放大或毛刺失真；
- * 当点数密集时采用 Min/Max 降采样，保证大文件性能。
- */
-function decimatePoints(
-  points: Point[],
-  minX: number,
-  maxX: number,
-  plotWidth: number,
-  scaleX: number,
-  panX: number
-): Point[] {
-  const visibleMinX = Math.max(minX, minX - panX / scaleX);
-  const visibleMaxX = Math.min(maxX, minX + (plotWidth - panX) / scaleX);
-  if (visibleMinX >= visibleMaxX || points.length === 0) {
-    return [];
-  }
-
-  // 二分查找可见范围起点（第一个 x >= visibleMinX）
-  let left = 0;
-  let right = points.length;
-  while (left < right) {
-    const mid = (left + right) >> 1;
-    if (points[mid].x < visibleMinX) {
-      left = mid + 1;
-    } else {
-      right = mid;
-    }
-  }
-  const startIndex = left;
-
-  // 二分查找可见范围终点（第一个 x > visibleMaxX）
-  left = 0;
-  right = points.length;
-  while (left < right) {
-    const mid = (left + right) >> 1;
-    if (points[mid].x <= visibleMaxX) {
-      left = mid + 1;
-    } else {
-      right = mid;
-    }
-  }
-  const endIndex = left;
-
-  if (startIndex >= endIndex) {
-    return [];
-  }
-
-  const visibleCount = endIndex - startIndex;
-  // 每列平均不超过 4 个点时直接绘制原始点，避免降采样带来的毛刺或单点消失
-  if (visibleCount <= plotWidth * 4) {
-    return points.slice(startIndex, endIndex);
-  }
-
-  const visibleSpan = visibleMaxX - visibleMinX;
-  const pxPerColumn = visibleSpan / plotWidth;
-  const decimated: Point[] = [];
-
-  let currentCol = -1;
-  let minPoint: Point | null = null;
-  let maxPoint: Point | null = null;
-
-  for (let i = startIndex; i < endIndex; i += 1) {
-    const p = points[i];
-    const col = Math.floor((p.x - visibleMinX) / pxPerColumn);
-
-    if (col !== currentCol) {
-      if (currentCol !== -1 && minPoint && maxPoint) {
-        if (minPoint === maxPoint) {
-          decimated.push(minPoint);
-        } else if (minPoint.x <= maxPoint.x) {
-          decimated.push(minPoint, maxPoint);
-        } else {
-          decimated.push(maxPoint, minPoint);
-        }
-      }
-      currentCol = col;
-      minPoint = p;
-      maxPoint = p;
-    } else {
-      if (p.y < minPoint!.y) minPoint = p;
-      if (p.y > maxPoint!.y) maxPoint = p;
-    }
-  }
-
-  // 输出最后一列
-  if (minPoint && maxPoint) {
-    if (minPoint === maxPoint) {
-      decimated.push(minPoint);
-    } else if (minPoint.x <= maxPoint.x) {
-      decimated.push(minPoint, maxPoint);
-    } else {
-      decimated.push(maxPoint, minPoint);
-    }
-  }
-
-  return decimated;
-}
-
 function drawChannelWaveform(
   ctx: CanvasRenderingContext2D,
   channel: Channel,
@@ -2826,7 +2724,6 @@ function drawChannelWaveform(
   scaleX: number,
   panX: number,
   minX: number,
-  maxX: number,
   selectedChannelId: string | null,
   horizontalCursorMode: boolean,
   crossCursorMode: boolean
@@ -2847,10 +2744,8 @@ function drawChannelWaveform(
   ctx.lineWidth = 1.5;
   ctx.globalAlpha = 1;
   ctx.beginPath();
-
-  const decimated = decimatePoints(channel.points, minX, maxX, plotWidth, scaleX, panX);
   let first = true;
-  for (const point of decimated) {
+  for (const point of channel.points) {
     const x = margin.left + (point.x - minX) * scaleX + panX;
     const y = bandCenterY - (point.y - yMid) * yScale * flip + channel.yOffset;
     if (first) {
@@ -2861,17 +2756,6 @@ function drawChannelWaveform(
     }
   }
   ctx.stroke();
-
-  // 可见范围内只有一个采样点时，stroke 不会画出可见线，额外绘制一个圆点标记
-  if (decimated.length === 1) {
-    const p = decimated[0];
-    const x = margin.left + (p.x - minX) * scaleX + panX;
-    const y = bandCenterY - (p.y - yMid) * yScale * flip + channel.yOffset;
-    ctx.fillStyle = ctx.strokeStyle;
-    ctx.beginPath();
-    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
 
 function drawChannelLabels(

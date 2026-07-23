@@ -34,21 +34,14 @@ input {
 /* ---------- Header ---------- */
 .scope-header {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
   padding: 12px 18px;
   background: #111421;
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 14px;
-}
-
-.header-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  min-width: 0;
 }
 
 .scope-header h1 {
@@ -57,30 +50,24 @@ input {
   font-weight: 600;
   color: #f3f4f6;
   letter-spacing: 0.02em;
-  white-space: nowrap;
-  flex: 0 0 auto;
 }
 
 .scope-toolbar {
   display: flex;
-  gap: 6px;
-  flex-wrap: nowrap;
-  min-width: 0;
-  overflow: hidden;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .toolbar-btn {
   border: 1px solid rgba(148, 163, 184, 0.2);
   background: #1e2438;
   color: #d1d5db;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 500;
   transition: all 0.16s ease;
-  white-space: nowrap;
-  flex: 0 0 auto;
 }
 
 .toolbar-btn:hover {
@@ -112,17 +99,15 @@ input {
 
 .scope-meta {
   display: flex;
-  gap: 10px;
-  flex-wrap: nowrap;
-  font-size: 0.85rem;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
   color: #9ca3af;
-  white-space: nowrap;
-  align-self: flex-end;
 }
 
 .scope-meta span {
   background: rgba(255, 255, 255, 0.05);
-  padding: 4px 8px;
+  padding: 4px 10px;
   border-radius: 8px;
 }
 
