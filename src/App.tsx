@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react';
 import { Channel, OscilloscopeData, Point } from './types';
-import { parseCsv } from './csv';
+import CsvWorker from './csv.worker?worker';
 import {
   clamp,
   dimColor,
@@ -138,6 +138,7 @@ function App() {
   const [draggingCrossMeasureLabelY, setDraggingCrossMeasureLabelY] = useState(false);
   const [hoveredCrossMeasureLabelY, setHoveredCrossMeasureLabelY] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingCsv, setLoadingCsv] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [resizeTick, setResizeTick] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -328,6 +329,79 @@ function App() {
     }));
   };
 
+  // 将 Worker 解析结果应用到主线程状态
+  const applyParsedData = (
+    parsed: OscilloscopeData,
+    filename?: string
+  ) => {
+    const csvDate = formatCsvDate(parsed.metadata.Date);
+    let initializedChannels: Channel[] = parsed.channels.map((ch) => ({
+      ...ch,
+      customName: ch.customName ?? '',
+      yOffset: 0,
+      yZoom: 1,
+      inverted: ch.inverted ?? false,
+    }));
+    initializedChannels = reorderChannelsByLock(initializedChannels, sortLockEnabled, lockedOrder, lockedY);
+
+    // 如果序列锁定开启，但新文件通道与锁定顺序不完全匹配，则自动关闭锁定，避免旧记忆被覆盖
+    if (sortLockEnabled && lockedOrder.length > 0) {
+      const initializedNames = new Set(initializedChannels.map((ch) => ch.name));
+      const lockNames = new Set(lockedOrder);
+      const matches =
+        initializedChannels.length === lockedOrder.length &&
+        initializedNames.size === lockedOrder.length &&
+        lockNames.size === lockedOrder.length &&
+        lockedOrder.every((name) => initializedNames.has(name));
+      if (!matches) {
+        setSortLockEnabled(false);
+      }
+    }
+
+    setData(parsed);
+    setChannels(initializedChannels);
+    setZoomX(1);
+    setPanX(0);
+    setCursorA(null);
+    setCursorB(null);
+    setCursorMode(false);
+    setHoveredCursor(null);
+    setDraggingCursor(null);
+    setMeasureLabelY(0.35);
+    setHoveredMeasureLabel(false);
+    setDraggingMeasureLabel(false);
+    setHorizontalCursorMode(false);
+    setCursorC(null);
+    setCursorD(null);
+    setHoveredHorizontalCursor(null);
+    setDraggingHorizontalCursor(null);
+    setHorizontalMeasureLabelX(0.65);
+    setHoveredHorizontalMeasureLabel(false);
+    setDraggingHorizontalMeasureLabel(false);
+    setCrossCursorMode(false);
+    setCursorE(null);
+    setCursorF(null);
+    setCursorG(null);
+    setCursorH(null);
+    setHoveredCrossCursor(null);
+    setDraggingCrossCursor(null);
+    setCrossMeasureLabelY(0.35);
+    setCrossMeasureLabelX(0.65);
+    setHoveredCrossMeasureLabelX(false);
+    setDraggingCrossMeasureLabelX(false);
+    setHoveredCrossMeasureLabelY(false);
+    setDraggingCrossMeasureLabelY(false);
+    setZoomXMode(true);
+    setZoomYMode(false);
+    setHoveredChannelId(null);
+    setDraggingChannelId(null);
+    setSelectedChannelId(null);
+    setLastHorizontalActiveChannelId(null);
+    setLastCrossActiveChannelId(null);
+    applyTestConditionsForFile(filename, csvDate);
+    setError(null);
+  };
+
   // 加载 CSV 后重置视图
   const loadCsvText = (text: string, filename?: string) => {
     try {
@@ -338,73 +412,33 @@ function App() {
       } catch {
         // 存储失败（如超出配额）不影响当前加载
       }
-      const parsed = parseCsv(text);
-      const csvDate = formatCsvDate(parsed.metadata.Date);
-      let initializedChannels: Channel[] = parsed.channels.map((ch) => ({
-        ...ch,
-        customName: ch.customName ?? '',
-        yOffset: 0,
-        yZoom: 1,
-        inverted: ch.inverted ?? false,
-      }));
-      initializedChannels = reorderChannelsByLock(initializedChannels, sortLockEnabled, lockedOrder, lockedY);
-
-      // 如果序列锁定开启，但新文件通道与锁定顺序不完全匹配，则自动关闭锁定，避免旧记忆被覆盖
-      if (sortLockEnabled && lockedOrder.length > 0) {
-        const initializedNames = new Set(initializedChannels.map((ch) => ch.name));
-        const lockNames = new Set(lockedOrder);
-        const matches =
-          initializedChannels.length === lockedOrder.length &&
-          initializedNames.size === lockedOrder.length &&
-          lockNames.size === lockedOrder.length &&
-          lockedOrder.every((name) => initializedNames.has(name));
-        if (!matches) {
-          setSortLockEnabled(false);
+      setLoadingCsv(true);
+      const worker = new CsvWorker();
+      worker.onerror = () => {
+        setLoadingCsv(false);
+        setError('CSV 解析失败');
+        setData(null);
+        setChannels([]);
+        sessionStorage.removeItem('oscilloscope-csv-text');
+      };
+      worker.onmessage = (
+        event: MessageEvent<
+          { type: 'success'; data: OscilloscopeData } | { type: 'error'; message: string }
+        >
+      ) => {
+        setLoadingCsv(false);
+        if (event.data.type === 'error') {
+          setError(event.data.message);
+          setData(null);
+          setChannels([]);
+          sessionStorage.removeItem('oscilloscope-csv-text');
+          return;
         }
-      }
-
-      setData(parsed);
-      setChannels(initializedChannels);
-      setZoomX(1);
-      setPanX(0);
-      setCursorA(null);
-      setCursorB(null);
-      setCursorMode(false);
-      setHoveredCursor(null);
-      setMeasureLabelY(0.35);
-      setHoveredMeasureLabel(false);
-      setDraggingMeasureLabel(false);
-      setHorizontalCursorMode(false);
-      setCursorC(null);
-      setCursorD(null);
-      setHoveredHorizontalCursor(null);
-      setDraggingHorizontalCursor(null);
-      setHorizontalMeasureLabelX(0.65);
-      setHoveredHorizontalMeasureLabel(false);
-      setDraggingHorizontalMeasureLabel(false);
-      setCrossCursorMode(false);
-      setCursorE(null);
-      setCursorF(null);
-      setCursorG(null);
-      setCursorH(null);
-      setHoveredCrossCursor(null);
-      setDraggingCrossCursor(null);
-      setCrossMeasureLabelY(0.35);
-      setCrossMeasureLabelX(0.65);
-      setHoveredCrossMeasureLabelX(false);
-      setDraggingCrossMeasureLabelX(false);
-      setHoveredCrossMeasureLabelY(false);
-      setDraggingCrossMeasureLabelY(false);
-      setZoomXMode(true);
-      setZoomYMode(false);
-      setHoveredChannelId(null);
-      setDraggingChannelId(null);
-      setSelectedChannelId(null);
-      setLastHorizontalActiveChannelId(null);
-      setLastCrossActiveChannelId(null);
-      applyTestConditionsForFile(filename, csvDate);
-      setError(null);
+        applyParsedData(event.data.data, filename);
+      };
+      worker.postMessage({ text });
     } catch (err) {
+      setLoadingCsv(false);
       setError(err instanceof Error ? err.message : 'CSV 解析失败');
       setData(null);
       setChannels([]);
@@ -1152,7 +1186,7 @@ function App() {
 
     channels.forEach((ch, index) => {
       if (ch.visible) {
-        drawChannelWaveform(ctx, ch, index, totalChannels, plotMargin, plotWidth, plotHeight, scaleX, panX, minX, activeChannelId, horizontalCursorMode, crossCursorMode);
+        drawChannelWaveform(ctx, ch, index, totalChannels, plotMargin, plotWidth, plotHeight, scaleX, panX, minX, maxX, activeChannelId, horizontalCursorMode, crossCursorMode);
       }
     });
 
@@ -2330,8 +2364,8 @@ function App() {
         <aside className="scope-sidebar">
           <div className="panel">
             <h2>文件</h2>
-            <label className="file-label" htmlFor="file" title={currentFilename ?? '上传或拖拽 CSV'}>
-              {currentFilename ?? '上传或拖拽 CSV'}
+            <label className="file-label" htmlFor="file" title={loadingCsv ? '正在解析 CSV...' : (currentFilename ?? '上传或拖拽 CSV')}>
+              {loadingCsv ? '正在解析 CSV...' : (currentFilename ?? '上传或拖拽 CSV')}
             </label>
             <input
               id="file"
@@ -2339,6 +2373,7 @@ function App() {
               type="file"
               accept=".csv,text/csv"
               onChange={handleFileChange}
+              disabled={loadingCsv}
             />
           </div>
 
@@ -2678,6 +2713,100 @@ function drawAxes(
   ctx.textAlign = 'left';
 }
 
+/**
+ * 按可见像素列对原始点做 Min/Max 降采样。
+ * 100 万点文件在任意缩放/平移下，每通道每帧最多绘制约 plotWidth * 2 个点，
+ * 既保留波峰/波谷包络，又避免 CPU 主线程被大数据量拖慢。
+ */
+function decimatePoints(
+  points: Point[],
+  minX: number,
+  maxX: number,
+  plotWidth: number,
+  scaleX: number,
+  panX: number
+): Point[] {
+  const visibleMinX = Math.max(minX, minX - panX / scaleX);
+  const visibleMaxX = Math.min(maxX, minX + (plotWidth - panX) / scaleX);
+  if (visibleMinX >= visibleMaxX || points.length === 0) {
+    return [];
+  }
+
+  // 二分查找可见范围起点（第一个 x >= visibleMinX）
+  let left = 0;
+  let right = points.length;
+  while (left < right) {
+    const mid = (left + right) >> 1;
+    if (points[mid].x < visibleMinX) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+  const startIndex = left;
+
+  // 二分查找可见范围终点（第一个 x > visibleMaxX）
+  left = 0;
+  right = points.length;
+  while (left < right) {
+    const mid = (left + right) >> 1;
+    if (points[mid].x <= visibleMaxX) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+  const endIndex = left;
+
+  if (startIndex >= endIndex) {
+    return [];
+  }
+
+  const visibleSpan = visibleMaxX - visibleMinX;
+  const pxPerColumn = visibleSpan / plotWidth;
+  const decimated: Point[] = [];
+
+  let currentCol = -1;
+  let minPoint: Point | null = null;
+  let maxPoint: Point | null = null;
+
+  for (let i = startIndex; i < endIndex; i += 1) {
+    const p = points[i];
+    const col = Math.floor((p.x - visibleMinX) / pxPerColumn);
+
+    if (col !== currentCol) {
+      if (currentCol !== -1 && minPoint && maxPoint) {
+        if (minPoint === maxPoint) {
+          decimated.push(minPoint);
+        } else if (minPoint.x <= maxPoint.x) {
+          decimated.push(minPoint, maxPoint);
+        } else {
+          decimated.push(maxPoint, minPoint);
+        }
+      }
+      currentCol = col;
+      minPoint = p;
+      maxPoint = p;
+    } else {
+      if (p.y < minPoint!.y) minPoint = p;
+      if (p.y > maxPoint!.y) maxPoint = p;
+    }
+  }
+
+  // 输出最后一列
+  if (minPoint && maxPoint) {
+    if (minPoint === maxPoint) {
+      decimated.push(minPoint);
+    } else if (minPoint.x <= maxPoint.x) {
+      decimated.push(minPoint, maxPoint);
+    } else {
+      decimated.push(maxPoint, minPoint);
+    }
+  }
+
+  return decimated;
+}
+
 function drawChannelWaveform(
   ctx: CanvasRenderingContext2D,
   channel: Channel,
@@ -2689,6 +2818,7 @@ function drawChannelWaveform(
   scaleX: number,
   panX: number,
   minX: number,
+  maxX: number,
   selectedChannelId: string | null,
   horizontalCursorMode: boolean,
   crossCursorMode: boolean
@@ -2709,8 +2839,10 @@ function drawChannelWaveform(
   ctx.lineWidth = 1.5;
   ctx.globalAlpha = 1;
   ctx.beginPath();
+
+  const decimated = decimatePoints(channel.points, minX, maxX, plotWidth, scaleX, panX);
   let first = true;
-  for (const point of channel.points) {
+  for (const point of decimated) {
     const x = margin.left + (point.x - minX) * scaleX + panX;
     const y = bandCenterY - (point.y - yMid) * yScale * flip + channel.yOffset;
     if (first) {
