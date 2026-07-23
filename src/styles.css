@@ -36,38 +36,46 @@ input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 12px 18px;
+  flex-wrap: nowrap;
+  gap: 10px;
+  padding: 10px 16px;
   background: #111421;
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 14px;
+  overflow: hidden;
 }
 
 .scope-header h1 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: #f3f4f6;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .scope-toolbar {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 5px;
+  flex-wrap: nowrap;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .toolbar-btn {
   border: 1px solid rgba(148, 163, 184, 0.2);
   background: #1e2438;
   color: #d1d5db;
-  padding: 8px 14px;
-  border-radius: 10px;
+  padding: 5px 10px;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 500;
   transition: all 0.16s ease;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .toolbar-btn:hover {
@@ -99,15 +107,17 @@ input {
 
 .scope-meta {
   display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  font-size: 0.9rem;
+  gap: 8px;
+  flex-wrap: nowrap;
+  font-size: 0.82rem;
   color: #9ca3af;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .scope-meta span {
   background: rgba(255, 255, 255, 0.05);
-  padding: 4px 10px;
+  padding: 3px 8px;
   border-radius: 8px;
 }
 

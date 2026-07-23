@@ -1186,7 +1186,7 @@ function App() {
 
     channels.forEach((ch, index) => {
       if (ch.visible) {
-        drawChannelWaveform(ctx, ch, index, totalChannels, plotMargin, plotWidth, plotHeight, scaleX, panX, minX, activeChannelId, horizontalCursorMode, crossCursorMode);
+        drawChannelWaveform(ctx, ch, index, totalChannels, plotMargin, plotWidth, plotHeight, scaleX, panX, minX, maxX, activeChannelId, horizontalCursorMode, crossCursorMode);
       }
     });
 
@@ -2713,6 +2713,99 @@ function drawAxes(
   ctx.textAlign = 'left';
 }
 
+/**
+ * LTTB（Largest Triangle Three Buckets）自适应降采样。
+ * 当可见点数密集时，用 LTTB 把数据降到约 plotWidth 个代表性点；
+ * 当可见点数稀疏时，直接绘制原始点，避免失真和单点消失。
+ * LTTB 选择“形状贡献最大”的点，比 Min/Max 更平滑，不易放大噪声毛刺。
+ */
+function lttbDecimate(
+  points: Point[],
+  minX: number,
+  maxX: number,
+  plotWidth: number,
+  scaleX: number,
+  panX: number
+): Point[] {
+  const visibleMinX = Math.max(minX, minX - panX / scaleX);
+  const visibleMaxX = Math.min(maxX, minX + (plotWidth - panX) / scaleX);
+  if (visibleMinX >= visibleMaxX || points.length === 0) {
+    return [];
+  }
+
+  // 二分查找可见范围起点（第一个 x >= visibleMinX）
+  let left = 0;
+  let right = points.length;
+  while (left < right) {
+    const mid = (left + right) >> 1;
+    if (points[mid].x < visibleMinX) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+  const startIndex = left;
+
+  // 二分查找可见范围终点（第一个 x > visibleMaxX）
+  left = 0;
+  right = points.length;
+  while (left < right) {
+    const mid = (left + right) >> 1;
+    if (points[mid].x <= visibleMaxX) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+  const endIndex = left;
+
+  if (startIndex >= endIndex) {
+    return [];
+  }
+
+  const visibleCount = endIndex - startIndex;
+  // 每列平均不超过 2 个点时直接绘制原始点，避免失真和单点消失
+  if (visibleCount <= plotWidth * 2) {
+    return points.slice(startIndex, endIndex);
+  }
+
+  // LTTB 降采样到约 plotWidth 个点
+  const k = plotWidth;
+  const n = visibleCount;
+  const bucketSize = (n - 2) / (k - 2);
+  const decimated: Point[] = [];
+
+  decimated.push(points[startIndex]);
+  let prevPoint = points[startIndex];
+
+  for (let i = 0; i < k - 2; i += 1) {
+    const bucketStart = Math.floor((i + 1) * bucketSize) + startIndex;
+    const bucketEnd = Math.floor((i + 2) * bucketSize) + startIndex;
+    const nextPoint = points[Math.min(bucketEnd, endIndex - 1)];
+
+    let maxArea = -1;
+    let selected = points[bucketStart];
+
+    for (let j = bucketStart; j < bucketEnd && j < endIndex; j += 1) {
+      const p = points[j];
+      const area = Math.abs(
+        (prevPoint.x - nextPoint.x) * (p.y - prevPoint.y) -
+          (prevPoint.x - p.x) * (nextPoint.y - prevPoint.y)
+      );
+      if (area > maxArea) {
+        maxArea = area;
+        selected = p;
+      }
+    }
+
+    decimated.push(selected);
+    prevPoint = selected;
+  }
+
+  decimated.push(points[endIndex - 1]);
+  return decimated;
+}
+
 function drawChannelWaveform(
   ctx: CanvasRenderingContext2D,
   channel: Channel,
@@ -2724,6 +2817,7 @@ function drawChannelWaveform(
   scaleX: number,
   panX: number,
   minX: number,
+  maxX: number,
   selectedChannelId: string | null,
   horizontalCursorMode: boolean,
   crossCursorMode: boolean
@@ -2745,7 +2839,8 @@ function drawChannelWaveform(
   ctx.globalAlpha = 1;
   ctx.beginPath();
   let first = true;
-  for (const point of channel.points) {
+  const decimated = lttbDecimate(channel.points, minX, maxX, plotWidth, scaleX, panX);
+  for (const point of decimated) {
     const x = margin.left + (point.x - minX) * scaleX + panX;
     const y = bandCenterY - (point.y - yMid) * yScale * flip + channel.yOffset;
     if (first) {
