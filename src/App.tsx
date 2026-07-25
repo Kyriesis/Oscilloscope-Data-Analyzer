@@ -2764,8 +2764,8 @@ function lttbDecimate(
   }
 
   const visibleCount = endIndex - startIndex;
-  // 每列平均不超过 2 个点时直接绘制原始点，避免失真和单点消失
-  if (visibleCount <= plotWidth * 2) {
+  // 5 万点以下的小文件直接绘制原始可见点，不做任何降采样，保证精度
+  if (points.length <= 50000 || visibleCount <= plotWidth * 2) {
     return points.slice(startIndex, endIndex);
   }
 
