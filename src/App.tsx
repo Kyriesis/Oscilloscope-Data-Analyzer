@@ -2714,12 +2714,12 @@ function drawAxes(
 }
 
 /**
- * LTTB（Largest Triangle Three Buckets）自适应降采样。
- * 当可见点数密集时，用 LTTB 把数据降到约 plotWidth 个代表性点；
- * 当可见点数稀疏时，直接绘制原始点，避免失真和单点消失。
- * LTTB 选择“形状贡献最大”的点，比 Min/Max 更平滑，不易放大噪声毛刺。
+ * HiRes Boxcar Averaging 自适应降采样。
+ * 当可见点数密集时（大数据 zoom out），按像素列分组并对每列内的 y 做平均，
+ * 每列只输出一个平均点；这样既保持性能，又像真实示波器 HiRes 模式一样平滑。
+ * 当点数稀疏（小文件或放大后）时直接绘制原始点，避免失真。
  */
-function lttbDecimate(
+function decimatePoints(
   points: Point[],
   minX: number,
   maxX: number,
@@ -2764,45 +2764,44 @@ function lttbDecimate(
   }
 
   const visibleCount = endIndex - startIndex;
-  // 5 万点以下的小文件直接绘制原始可见点，不做任何降采样，保证精度
+  // 5 万点以下的小文件或放大到稀疏时，直接绘制原始可见点，不做任何降采样
   if (points.length <= 50000 || visibleCount <= plotWidth * 2) {
     return points.slice(startIndex, endIndex);
   }
 
-  // LTTB 降采样到约 plotWidth 个点
-  const k = plotWidth;
-  const n = visibleCount;
-  const bucketSize = (n - 2) / (k - 2);
+  // HiRes 平均：每像素列一个平均点
+  const visibleSpan = visibleMaxX - visibleMinX;
+  const pxPerColumn = visibleSpan / plotWidth;
   const decimated: Point[] = [];
 
-  decimated.push(points[startIndex]);
-  let prevPoint = points[startIndex];
+  let currentCol = -1;
+  let xSum = 0;
+  let ySum = 0;
+  let count = 0;
 
-  for (let i = 0; i < k - 2; i += 1) {
-    const bucketStart = Math.floor((i + 1) * bucketSize) + startIndex;
-    const bucketEnd = Math.floor((i + 2) * bucketSize) + startIndex;
-    const nextPoint = points[Math.min(bucketEnd, endIndex - 1)];
-
-    let maxArea = -1;
-    let selected = points[bucketStart];
-
-    for (let j = bucketStart; j < bucketEnd && j < endIndex; j += 1) {
-      const p = points[j];
-      const area = Math.abs(
-        (prevPoint.x - nextPoint.x) * (p.y - prevPoint.y) -
-          (prevPoint.x - p.x) * (nextPoint.y - prevPoint.y)
-      );
-      if (area > maxArea) {
-        maxArea = area;
-        selected = p;
+  for (let i = startIndex; i < endIndex; i += 1) {
+    const p = points[i];
+    const col = Math.min(plotWidth - 1, Math.floor((p.x - visibleMinX) / pxPerColumn));
+    if (col !== currentCol) {
+      if (currentCol !== -1 && count > 0) {
+        decimated.push({ x: xSum / count, y: ySum / count });
       }
+      currentCol = col;
+      xSum = p.x;
+      ySum = p.y;
+      count = 1;
+    } else {
+      xSum += p.x;
+      ySum += p.y;
+      count += 1;
     }
-
-    decimated.push(selected);
-    prevPoint = selected;
   }
 
-  decimated.push(points[endIndex - 1]);
+  // 输出最后一列
+  if (count > 0) {
+    decimated.push({ x: xSum / count, y: ySum / count });
+  }
+
   return decimated;
 }
 
@@ -2839,7 +2838,7 @@ function drawChannelWaveform(
   ctx.globalAlpha = 1;
   ctx.beginPath();
   let first = true;
-  const decimated = lttbDecimate(channel.points, minX, maxX, plotWidth, scaleX, panX);
+  const decimated = decimatePoints(channel.points, minX, maxX, plotWidth, scaleX, panX);
   for (const point of decimated) {
     const x = margin.left + (point.x - minX) * scaleX + panX;
     const y = bandCenterY - (point.y - yMid) * yScale * flip + channel.yOffset;
