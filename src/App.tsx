@@ -2857,7 +2857,7 @@ function drawChannelWaveform(
     visibleCount = Math.max(0, left - start);
   }
   const density = Math.max(1, visibleCount / plotWidth);
-  const lineWidth = Math.max(0.8, Math.min(1.5, 1.5 / (1 + (density - 1) * 0.15)));
+  const lineWidth = Math.max(0.6, Math.min(1.5, 1.5 / (1 + (density - 1) * 0.2)));
 
   // 波形：横向/纵横光标模式下，被选中/激活通道保持原样，其余通道变暗
   const isSelected = channel.id === selectedChannelId;
