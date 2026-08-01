@@ -2713,27 +2713,20 @@ function drawAxes(
   ctx.textAlign = 'left';
 }
 
-interface DecimatedPoint {
-  x: number;
-  minY: number;
-  maxY: number;
-  midY: number;
-}
-
 /**
- * Median + 轻微滑动平均 自适应降采样。
- * 大数据 zoom out 时：每像素列取 y 中位数，然后做 3 列中心滑动平均。
- * 这样保留噪声纹理但抚平孤立尖刺，画出来是一条接近真实示波器的单线。
- * 小文件 / 放大时：直接绘制原始点，避免失真。
+ * LTTB（Largest Triangle Three Buckets）自适应降采样。
+ * 当可见点数密集时，用 LTTB 把数据降到约 plotWidth 个代表性点；
+ * 当可见点数稀疏时，直接绘制原始点，避免失真和单点消失。
+ * LTTB 选择“形状贡献最大”的点，比 Min/Max 更平滑，不易放大噪声毛刺。
  */
-function decimatePoints(
+function lttbDecimate(
   points: Point[],
   minX: number,
   maxX: number,
   plotWidth: number,
   scaleX: number,
   panX: number
-): DecimatedPoint[] {
+): Point[] {
   const visibleMinX = Math.max(minX, minX - panX / scaleX);
   const visibleMaxX = Math.min(maxX, minX + (plotWidth - panX) / scaleX);
   if (visibleMinX >= visibleMaxX || points.length === 0) {
@@ -2771,83 +2764,46 @@ function decimatePoints(
   }
 
   const visibleCount = endIndex - startIndex;
-  // 5 万点以下的小文件或放大到稀疏时，直接绘制原始可见点
+  // 5 万点以下的小文件直接绘制原始可见点，不做任何降采样，保证精度
   if (points.length <= 50000 || visibleCount <= plotWidth * 2) {
-    return points.slice(startIndex, endIndex).map((p) => ({
-      x: p.x,
-      minY: p.y,
-      maxY: p.y,
-      midY: p.y,
-    }));
+    return points.slice(startIndex, endIndex);
   }
 
-  // 每像素列收集点，后续计算中位数
-  const visibleSpan = visibleMaxX - visibleMinX;
-  const pxPerColumn = visibleSpan / plotWidth;
-  const columns: { x: number; ys: number[] }[] = [];
+  // LTTB 降采样到约 plotWidth 个点
+  const k = plotWidth;
+  const n = visibleCount;
+  const bucketSize = (n - 2) / (k - 2);
+  const decimated: Point[] = [];
 
-  let currentCol = -1;
-  let xSum = 0;
-  let ys: number[] = [];
-  let count = 0;
+  decimated.push(points[startIndex]);
+  let prevPoint = points[startIndex];
 
-  for (let i = startIndex; i < endIndex; i += 1) {
-    const p = points[i];
-    const col = Math.min(plotWidth - 1, Math.floor((p.x - visibleMinX) / pxPerColumn));
-    if (col !== currentCol) {
-      if (currentCol !== -1 && count > 0) {
-        columns.push({ x: xSum / count, ys: [...ys] });
-      }
-      currentCol = col;
-      xSum = p.x;
-      ys = [p.y];
-      count = 1;
-    } else {
-      xSum += p.x;
-      ys.push(p.y);
-      count += 1;
-    }
-  }
+  for (let i = 0; i < k - 2; i += 1) {
+    const bucketStart = Math.floor((i + 1) * bucketSize) + startIndex;
+    const bucketEnd = Math.floor((i + 2) * bucketSize) + startIndex;
+    const nextPoint = points[Math.min(bucketEnd, endIndex - 1)];
 
-  // 输出最后一列
-  if (count > 0) {
-    columns.push({ x: xSum / count, ys: [...ys] });
-  }
+    let maxArea = -1;
+    let selected = points[bucketStart];
 
-  if (columns.length === 0) {
-    return [];
-  }
-
-  // 每列取中位数
-  const medians = columns.map((col) => {
-    const sorted = col.ys.slice().sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-  });
-
-  // 对中位数序列做 3 列中心滑动平均，抚平孤立尖刺但保留噪声纹理
-  const windowSize = 3;
-  const halfWindow = Math.floor(windowSize / 2);
-  const smoothed: DecimatedPoint[] = columns.map((col, i) => {
-    let sum = 0;
-    let weight = 0;
-    for (let j = -halfWindow; j <= halfWindow; j += 1) {
-      const idx = i + j;
-      if (idx >= 0 && idx < medians.length) {
-        sum += medians[idx];
-        weight += 1;
+    for (let j = bucketStart; j < bucketEnd && j < endIndex; j += 1) {
+      const p = points[j];
+      const area = Math.abs(
+        (prevPoint.x - nextPoint.x) * (p.y - prevPoint.y) -
+          (prevPoint.x - p.x) * (nextPoint.y - prevPoint.y)
+      );
+      if (area > maxArea) {
+        maxArea = area;
+        selected = p;
       }
     }
-    const y = sum / weight;
-    return {
-      x: col.x,
-      minY: y,
-      maxY: y,
-      midY: y,
-    };
-  });
 
-  return smoothed;
+    decimated.push(selected);
+    prevPoint = selected;
+  }
+
+  decimated.push(points[endIndex - 1]);
+  return decimated;
 }
 
 function drawChannelWaveform(
@@ -2876,25 +2832,42 @@ function drawChannelWaveform(
 
   // 波形：横向/纵横光标模式下，被选中/激活通道保持原样，其余通道变暗
   const isSelected = channel.id === selectedChannelId;
-  ctx.strokeStyle = ((horizontalCursorMode || crossCursorMode) && selectedChannelId !== null && !isSelected)
+  const color = ((horizontalCursorMode || crossCursorMode) && selectedChannelId !== null && !isSelected)
     ? dimColor(channel.color)
     : channel.color;
-  ctx.lineWidth = 1.5;
-  ctx.globalAlpha = 1;
-  ctx.beginPath();
+  const decimated = lttbDecimate(channel.points, minX, maxX, plotWidth, scaleX, panX);
+  if (decimated.length === 0) return;
+
+  // 构造路径，用于光晕层和实线层
+  const path = new Path2D();
   let first = true;
-  const decimated = decimatePoints(channel.points, minX, maxX, plotWidth, scaleX, panX);
   for (const point of decimated) {
     const x = margin.left + (point.x - minX) * scaleX + panX;
-    const y = bandCenterY - (point.midY - yMid) * yScale * flip + channel.yOffset;
+    const y = bandCenterY - (point.y - yMid) * yScale * flip + channel.yOffset;
     if (first) {
-      ctx.moveTo(x, y);
+      path.moveTo(x, y);
       first = false;
     } else {
-      ctx.lineTo(x, y);
+      path.lineTo(x, y);
     }
   }
-  ctx.stroke();
+
+  // 光晕层：较粗、半透明，让密集毛刺视觉融合，减少密集感
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 4;
+  ctx.lineWidth = 2.5;
+  ctx.globalAlpha = 0.35;
+  ctx.stroke(path);
+  ctx.restore();
+
+  // 实线层：清晰波形
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  ctx.stroke(path);
 }
 
 function drawChannelLabels(
