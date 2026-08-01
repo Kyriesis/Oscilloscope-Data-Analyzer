@@ -2714,10 +2714,8 @@ function drawAxes(
 }
 
 /**
- * LTTB（Largest Triangle Three Buckets）自适应降采样。
- * 当可见点数密集时，用 LTTB 把数据降到约 plotWidth 个代表性点；
- * 当可见点数稀疏时，直接绘制原始点，避免失真和单点消失。
- * LTTB 选择“形状贡献最大”的点，比 Min/Max 更平滑，不易放大噪声毛刺。
+ * 5 万点以下文件不使用降采样，直接绘制原始点，保证精度。
+ * 大数据 zoom out 时仍用 LTTB 降采样到约 plotWidth 个点，避免绘制过密。
  */
 function lttbDecimate(
   points: Point[],
@@ -2832,42 +2830,25 @@ function drawChannelWaveform(
 
   // 波形：横向/纵横光标模式下，被选中/激活通道保持原样，其余通道变暗
   const isSelected = channel.id === selectedChannelId;
-  const color = ((horizontalCursorMode || crossCursorMode) && selectedChannelId !== null && !isSelected)
+  ctx.strokeStyle = ((horizontalCursorMode || crossCursorMode) && selectedChannelId !== null && !isSelected)
     ? dimColor(channel.color)
     : channel.color;
-  const decimated = lttbDecimate(channel.points, minX, maxX, plotWidth, scaleX, panX);
-  if (decimated.length === 0) return;
-
-  // 构造路径，用于光晕层和实线层
-  const path = new Path2D();
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 1;
+  ctx.beginPath();
   let first = true;
+  const decimated = lttbDecimate(channel.points, minX, maxX, plotWidth, scaleX, panX);
   for (const point of decimated) {
     const x = margin.left + (point.x - minX) * scaleX + panX;
     const y = bandCenterY - (point.y - yMid) * yScale * flip + channel.yOffset;
     if (first) {
-      path.moveTo(x, y);
+      ctx.moveTo(x, y);
       first = false;
     } else {
-      path.lineTo(x, y);
+      ctx.lineTo(x, y);
     }
   }
-
-  // 光晕层：较粗、半透明，让密集毛刺视觉融合，减少密集感
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 4;
-  ctx.lineWidth = 2.5;
-  ctx.globalAlpha = 0.35;
-  ctx.stroke(path);
-  ctx.restore();
-
-  // 实线层：清晰波形
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
-  ctx.globalAlpha = 1;
-  ctx.shadowBlur = 0;
-  ctx.stroke(path);
+  ctx.stroke();
 }
 
 function drawChannelLabels(
