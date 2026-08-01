@@ -2713,11 +2713,18 @@ function drawAxes(
   ctx.textAlign = 'left';
 }
 
+interface DecimatedPoint {
+  x: number;
+  minY: number;
+  maxY: number;
+  midY: number;
+}
+
 /**
- * HiRes Boxcar Averaging 自适应降采样。
- * 当可见点数密集时（大数据 zoom out），按像素列分组并对每列内的 y 做平均，
- * 每列只输出一个平均点；这样既保持性能，又像真实示波器 HiRes 模式一样平滑。
- * 当点数稀疏（小文件或放大后）时直接绘制原始点，避免失真。
+ * Smoothed Peak-Detect Envelope 自适应降采样。
+ * 大数据 zoom out 时：每像素列保留 min/max 包络，然后对包络做 3 列滑动平均，
+ * 孤立毛刺被抚平，连续噪声纹理保留，形成真实示波器般的噪声带。
+ * 小文件 / 放大时：直接绘制原始点，避免失真。
  */
 function decimatePoints(
   points: Point[],
@@ -2726,7 +2733,7 @@ function decimatePoints(
   plotWidth: number,
   scaleX: number,
   panX: number
-): Point[] {
+): DecimatedPoint[] {
   const visibleMinX = Math.max(minX, minX - panX / scaleX);
   const visibleMaxX = Math.min(maxX, minX + (plotWidth - panX) / scaleX);
   if (visibleMinX >= visibleMaxX || points.length === 0) {
@@ -2766,17 +2773,24 @@ function decimatePoints(
   const visibleCount = endIndex - startIndex;
   // 5 万点以下的小文件或放大到稀疏时，直接绘制原始可见点，不做任何降采样
   if (points.length <= 50000 || visibleCount <= plotWidth * 2) {
-    return points.slice(startIndex, endIndex);
+    return points.slice(startIndex, endIndex).map((p) => ({
+      x: p.x,
+      minY: p.y,
+      maxY: p.y,
+      midY: p.y,
+    }));
   }
 
-  // HiRes 平均：每像素列一个平均点
+  // Peak Detect：每像素列收集 x 平均、y 最小/最大、y 平均
   const visibleSpan = visibleMaxX - visibleMinX;
   const pxPerColumn = visibleSpan / plotWidth;
-  const decimated: Point[] = [];
+  const columns: { x: number; minY: number; maxY: number; midY: number }[] = [];
 
   let currentCol = -1;
   let xSum = 0;
   let ySum = 0;
+  let yMin = Number.POSITIVE_INFINITY;
+  let yMax = Number.NEGATIVE_INFINITY;
   let count = 0;
 
   for (let i = startIndex; i < endIndex; i += 1) {
@@ -2784,25 +2798,58 @@ function decimatePoints(
     const col = Math.min(plotWidth - 1, Math.floor((p.x - visibleMinX) / pxPerColumn));
     if (col !== currentCol) {
       if (currentCol !== -1 && count > 0) {
-        decimated.push({ x: xSum / count, y: ySum / count });
+        columns.push({ x: xSum / count, minY: yMin, maxY: yMax, midY: ySum / count });
       }
       currentCol = col;
       xSum = p.x;
       ySum = p.y;
+      yMin = p.y;
+      yMax = p.y;
       count = 1;
     } else {
       xSum += p.x;
       ySum += p.y;
+      yMin = Math.min(yMin, p.y);
+      yMax = Math.max(yMax, p.y);
       count += 1;
     }
   }
 
   // 输出最后一列
   if (count > 0) {
-    decimated.push({ x: xSum / count, y: ySum / count });
+    columns.push({ x: xSum / count, minY: yMin, maxY: yMax, midY: ySum / count });
   }
 
-  return decimated;
+  if (columns.length === 0) {
+    return [];
+  }
+
+  // 对 min/max 包络做 3 列中心滑动平均，抚平孤立毛刺但保留噪声带纹理
+  const windowSize = 3;
+  const halfWindow = Math.floor(windowSize / 2);
+  const smoothed: DecimatedPoint[] = columns.map((col, i) => {
+    let minSum = 0;
+    let maxSum = 0;
+    let weight = 0;
+    for (let j = -halfWindow; j <= halfWindow; j += 1) {
+      const idx = i + j;
+      if (idx >= 0 && idx < columns.length) {
+        minSum += columns[idx].minY;
+        maxSum += columns[idx].maxY;
+        weight += 1;
+      }
+    }
+    const sMin = minSum / weight;
+    const sMax = maxSum / weight;
+    return {
+      x: col.x,
+      minY: sMin,
+      maxY: sMax,
+      midY: (sMin + sMax) / 2,
+    };
+  });
+
+  return smoothed;
 }
 
 function drawChannelWaveform(
@@ -2831,22 +2878,50 @@ function drawChannelWaveform(
 
   // 波形：横向/纵横光标模式下，被选中/激活通道保持原样，其余通道变暗
   const isSelected = channel.id === selectedChannelId;
-  ctx.strokeStyle = ((horizontalCursorMode || crossCursorMode) && selectedChannelId !== null && !isSelected)
+  const color = ((horizontalCursorMode || crossCursorMode) && selectedChannelId !== null && !isSelected)
     ? dimColor(channel.color)
     : channel.color;
+  const decimated = decimatePoints(channel.points, minX, maxX, plotWidth, scaleX, panX);
+  if (decimated.length === 0) return;
+
+  const toScreen = (p: { x: number; y: number }) => ({
+    x: margin.left + (p.x - minX) * scaleX + panX,
+    y: bandCenterY - (p.y - yMid) * yScale * flip + channel.yOffset,
+  });
+
+  // 先画半透明噪声带（max → min 闭合填充）
+  ctx.fillStyle = dimColor(color, 0.2);
+  ctx.beginPath();
+  let first = true;
+  for (const point of decimated) {
+    const s = toScreen({ x: point.x, y: point.maxY });
+    if (first) {
+      ctx.moveTo(s.x, s.y);
+      first = false;
+    } else {
+      ctx.lineTo(s.x, s.y);
+    }
+  }
+  for (let i = decimated.length - 1; i >= 0; i -= 1) {
+    const s = toScreen({ x: decimated[i].x, y: decimated[i].minY });
+    ctx.lineTo(s.x, s.y);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // 再画中线（包络平均）作为清晰波形
+  ctx.strokeStyle = color;
   ctx.lineWidth = 1.5;
   ctx.globalAlpha = 1;
   ctx.beginPath();
-  let first = true;
-  const decimated = decimatePoints(channel.points, minX, maxX, plotWidth, scaleX, panX);
+  let lineFirst = true;
   for (const point of decimated) {
-    const x = margin.left + (point.x - minX) * scaleX + panX;
-    const y = bandCenterY - (point.y - yMid) * yScale * flip + channel.yOffset;
-    if (first) {
-      ctx.moveTo(x, y);
-      first = false;
+    const s = toScreen({ x: point.x, y: point.midY });
+    if (lineFirst) {
+      ctx.moveTo(s.x, s.y);
+      lineFirst = false;
     } else {
-      ctx.lineTo(x, y);
+      ctx.lineTo(s.x, s.y);
     }
   }
   ctx.stroke();
