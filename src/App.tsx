@@ -2828,12 +2828,43 @@ function drawChannelWaveform(
   const yMid = (channel.minY + channel.maxY) / 2;
   const flip = channel.inverted ? -1 : 1;
 
+  // 计算可见区原始点密度，用于自适应线宽：越密集线越细，降低毛刺视觉密度
+  const visibleMinX = Math.max(minX, minX - panX / scaleX);
+  const visibleMaxX = Math.min(maxX, minX + (plotWidth - panX) / scaleX);
+  let visibleCount = 0;
+  if (visibleMinX < visibleMaxX && channel.points.length > 0) {
+    let left = 0;
+    let right = channel.points.length;
+    while (left < right) {
+      const mid = (left + right) >> 1;
+      if (channel.points[mid].x < visibleMinX) {
+        left = mid + 1;
+      } else {
+        right = mid;
+      }
+    }
+    const start = left;
+    left = 0;
+    right = channel.points.length;
+    while (left < right) {
+      const mid = (left + right) >> 1;
+      if (channel.points[mid].x <= visibleMaxX) {
+        left = mid + 1;
+      } else {
+        right = mid;
+      }
+    }
+    visibleCount = Math.max(0, left - start);
+  }
+  const density = Math.max(1, visibleCount / plotWidth);
+  const lineWidth = Math.max(0.8, Math.min(1.5, 1.5 / (1 + (density - 1) * 0.15)));
+
   // 波形：横向/纵横光标模式下，被选中/激活通道保持原样，其余通道变暗
   const isSelected = channel.id === selectedChannelId;
   ctx.strokeStyle = ((horizontalCursorMode || crossCursorMode) && selectedChannelId !== null && !isSelected)
     ? dimColor(channel.color)
     : channel.color;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = lineWidth;
   ctx.globalAlpha = 1;
   ctx.beginPath();
   let first = true;
