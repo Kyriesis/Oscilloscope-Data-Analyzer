@@ -403,23 +403,42 @@ function App() {
   };
 
   // 加载 CSV 后重置视图
+  const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024; // 5MB：超过此大小的文件不再缓存完整 CSV 文本
   const loadCsvText = (text: string, filename?: string) => {
     try {
-      // 缓存原始 CSV 文本与文件名，页面刷新或 dev server 自动重载后可恢复
-      try {
-        sessionStorage.setItem('oscilloscope-csv-text', text);
-        if (filename) sessionStorage.setItem('oscilloscope-csv-filename', filename);
-      } catch {
-        // 存储失败（如超出配额）不影响当前加载
+      // 先释放旧数据，避免新旧文件数据同时在内存中叠加导致 OOM
+      setData(null);
+      setChannels([]);
+      // 仅小文件缓存完整 CSV 文本到 sessionStorage，大文件跳过缓存以节省内存
+      const shouldCacheText = text.length <= LARGE_FILE_THRESHOLD;
+      if (shouldCacheText) {
+        try {
+          sessionStorage.setItem('oscilloscope-csv-text', text);
+          if (filename) sessionStorage.setItem('oscilloscope-csv-filename', filename);
+        } catch {
+          // 存储失败（如超出配额）不影响当前加载
+        }
+      } else {
+        sessionStorage.removeItem('oscilloscope-csv-text');
+        sessionStorage.removeItem('oscilloscope-csv-filename');
       }
       setLoadingCsv(true);
       const worker = new CsvWorker();
+      const terminateWorker = () => {
+        try {
+          worker.terminate();
+        } catch {
+          // Worker 终止失败不影响主线程
+        }
+      };
       worker.onerror = () => {
         setLoadingCsv(false);
         setError('CSV 解析失败');
         setData(null);
         setChannels([]);
         sessionStorage.removeItem('oscilloscope-csv-text');
+        sessionStorage.removeItem('oscilloscope-csv-filename');
+        terminateWorker();
       };
       worker.onmessage = (
         event: MessageEvent<
@@ -432,9 +451,12 @@ function App() {
           setData(null);
           setChannels([]);
           sessionStorage.removeItem('oscilloscope-csv-text');
+          sessionStorage.removeItem('oscilloscope-csv-filename');
+          terminateWorker();
           return;
         }
         applyParsedData(event.data.data, filename);
+        terminateWorker();
       };
       worker.postMessage({ text });
     } catch (err) {
@@ -443,6 +465,7 @@ function App() {
       setData(null);
       setChannels([]);
       sessionStorage.removeItem('oscilloscope-csv-text');
+      sessionStorage.removeItem('oscilloscope-csv-filename');
     }
   };
 
