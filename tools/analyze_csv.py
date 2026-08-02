@@ -186,12 +186,15 @@ def analyze_file_safe(args: tuple) -> dict:
 
 
 def find_csv_files(input_path: str) -> list[str]:
-    """查找输入路径下的所有 CSV 文件。"""
+    """查找输入路径下的所有 CSV 数据文件，排除已有的报告文件。"""
     p = Path(input_path)
     if p.is_file():
         return [str(p)]
     if p.is_dir():
-        return [str(f) for f in sorted(p.glob("*.csv"))]
+        files = [str(f) for f in sorted(p.glob("*.csv"))]
+        # 排除报告文件，避免把 analysis_report.csv 当作数据源重复处理
+        files = [f for f in files if not Path(f).name.lower().startswith("analysis_report")]
+        return files
     raise FileNotFoundError(f"路径不存在: {input_path}")
 
 
