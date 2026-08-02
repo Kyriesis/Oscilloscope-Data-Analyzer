@@ -60,7 +60,11 @@ def parse_rigol_csv(path: str) -> tuple[float, float, list[str], list[list[float
 
 
 def detect_falling_edge(values: list[float], threshold: float = 1.5) -> int:
-    """检测数字通道从高到低的下降沿，返回最后一个下降沿索引。"""
+    """检测数字通道从高到低的下降沿，返回最后一个下降沿索引。
+
+    业务假设：测试流程保证最后一个 Pawl SW 下降沿才会触发堵转事件，
+    因此直接取最后一个下降沿作为目标事件。
+    """
     edges = []
     for i in range(1, len(values)):
         if values[i - 1] > threshold and values[i] <= threshold:
