@@ -519,6 +519,26 @@ function App() {
     }
   }, [sortLockEnabled, lockedOrder, lockedY]);
 
+  // 退出单通道模式（Zoom Y / 横向 / 纵横）时，把各通道 yOffset 归零，
+  // 避免回到多通道模式后左侧 0 位标签被 clamp 到 band 内而波形 0 位仍偏出 band 的错位。
+  const singleChannelMode = zoomYMode || horizontalCursorMode || crossCursorMode;
+  const prevSingleChannelModeRef = useRef(singleChannelMode);
+  useEffect(() => {
+    const prev = prevSingleChannelModeRef.current;
+    const next = singleChannelMode;
+    prevSingleChannelModeRef.current = next;
+    if (prev && !next) {
+      setChannels((prevChannels) => prevChannels.map((ch) => ({ ...ch, yOffset: 0 })));
+      if (sortLockEnabled) {
+        setLockedY((prevLockedY) =>
+          Object.fromEntries(
+            Object.entries(prevLockedY).map(([name, saved]) => [name, { ...saved, yOffset: 0 }])
+          )
+        );
+      }
+    }
+  }, [singleChannelMode, sortLockEnabled]);
+
   const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
