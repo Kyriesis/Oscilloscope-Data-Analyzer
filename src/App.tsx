@@ -2361,8 +2361,9 @@ function App() {
                   </section>
                   <section>
                     <h3>版本说明</h3>
-                    <p>v0.0.2</p>
+                    <p><strong>v1.0.0（稳定版）</strong></p>
                     <p>基于 Vite + React + TypeScript 构建，无外部图表库。</p>
+                    <p>当前版本已完成核心示波器波形查看、Zoom X/Y、光标测量、序列锁定等功能的稳定性修复，可作为稳定版本使用。</p>
                   </section>
                   <section>
                     <h3>功能特性</h3>

@@ -1,5 +1,7 @@
 # Oscilloscope Data Analyzer
 
+**版本：v1.0.0（稳定版）**
+
 一个基于 Vite + React + TypeScript 的轻量级网页应用，用于加载 **Yokogawa 示波器（Xviewer）** 导出的 CSV 波形文件，并在浏览器中还原出示波器风格的波形显示、缩放平移与光标测量。
 
 在线预览：[https://kyriesis.github.io/Oscilloscope-Data-Analyzer/](https://kyriesis.github.io/Oscilloscope-Data-Analyzer/)
@@ -111,3 +113,19 @@ Time(s),CH1V,CH2V,CH3V,CH4V
 第一列为时间（秒），后续每列对应一个通道的电压值。
 
 后续将逐步扩展 Siglent、Keysight、Tektronix 等品牌格式。
+
+## 版本说明
+
+### v1.0.0（稳定版）
+
+当前版本为稳定版，核心功能已完成并经过多轮修复与优化，主要稳定点包括：
+
+- **Zoom Y 与 Zoom X 显示一致性**：Zoom Y 下自由拖动通道位置、调整倍率后，切换回 Zoom X 时左侧 0 位标签始终与波形 0 位对齐，允许通道重叠，由用户自行调整布局。
+- **序列锁定**：正确记忆并恢复通道排序、Y 偏移、Y 缩放、反相状态及自定义名称；新文件通道不匹配时自动关闭锁定，避免旧记忆覆盖新数据。
+- **测量与标注**：纵向、横向、纵横光标测量稳定；标注智能避让、半透明背景、虚线延伸等 UI 细节一致。
+- **性能与内存**：大文件加载通过 Worker 解析并释放旧数据，避免连续加载导致内存崩溃。
+
+### 历史版本
+
+- v0.0.2：帮助弹窗中的内部版本号（实际 package.json 为 0.0.1）。
+- v0.0.1：初始版本，包含基础 CSV 解析、波形绘制、Zoom X、通道面板。
