@@ -171,10 +171,10 @@ function App() {
       return [];
     }
   });
-  const [lockedY, setLockedY] = useState<Record<string, { yOffset: number; yZoom: number; inverted?: boolean; customName?: string }>>(() => {
+  const [lockedY, setLockedY] = useState<Record<string, { yOffset: number; yZoom: number; vDiv?: number; inverted?: boolean; customName?: string }>>(() => {
     try {
       const raw = localStorage.getItem('oscilloscope-sort-lock-y');
-      return raw ? (JSON.parse(raw) as Record<string, { yOffset: number; yZoom: number; inverted?: boolean; customName?: string }>) : {};
+      return raw ? (JSON.parse(raw) as Record<string, { yOffset: number; yZoom: number; vDiv?: number; inverted?: boolean; customName?: string }>) : {};
     } catch {
       return {};
     }
@@ -271,7 +271,7 @@ function App() {
     initialized: Channel[],
     lockEnabled: boolean,
     order: string[],
-    ySettings: Record<string, { yOffset: number; yZoom: number; inverted?: boolean; customName?: string }>
+    ySettings: Record<string, { yOffset: number; yZoom: number; vDiv?: number; inverted?: boolean; customName?: string }>
   ): Channel[] {
     if (!lockEnabled || order.length === 0) return initialized;
     if (initialized.length !== order.length) return initialized;
@@ -288,15 +288,18 @@ function App() {
     return order.map((name) => {
       const ch = channelMap.get(name)!;
       const saved = ySettings[name];
-      return saved
-        ? {
-            ...ch,
-            yOffset: saved.yOffset,
-            yZoom: saved.yZoom,
-            inverted: saved.inverted ?? false,
-            customName: saved.customName ?? ch.customName,
-          }
-        : ch;
+      if (!saved) return ch;
+      const ySpan = ch.maxY - ch.minY || 1;
+      const yZoom = saved.vDiv
+        ? clamp((initialized.length * ySpan) / (saved.vDiv * 7.5), 0.015625, 32)
+        : clamp(saved.yZoom, 0.015625, 32);
+      return {
+        ...ch,
+        yOffset: saved.yOffset,
+        yZoom,
+        inverted: saved.inverted ?? false,
+        customName: saved.customName ?? ch.customName,
+      };
     });
   }
 
@@ -307,7 +310,14 @@ function App() {
         setLockedOrder(channels.map((ch) => ch.name));
         setLockedY(
           Object.fromEntries(
-            channels.map((ch) => [ch.name, { yOffset: ch.yOffset, yZoom: ch.yZoom, inverted: ch.inverted ?? false, customName: ch.customName }])
+            channels.map((ch) => {
+              const ySpan = ch.maxY - ch.minY || 1;
+              const vDiv = (channels.length * ySpan) / (ch.yZoom * 7.5);
+              return [
+                ch.name,
+                { yOffset: ch.yOffset, yZoom: ch.yZoom, vDiv, inverted: ch.inverted ?? false, customName: ch.customName },
+              ];
+            })
           )
         );
       }
@@ -315,14 +325,15 @@ function App() {
     });
   };
 
-  /** 在序列锁定开启时同步某个通道的 Y 轴视图 */
-  const updateLockedY = (name: string, yOffset: number, yZoom: number) => {
+  /** 在序列锁定开启时同步某个通道的 Y 轴视图（保存 V/div 绝对刻度） */
+  const updateLockedY = (name: string, yOffset: number, yZoom: number, ySpan: number, total: number) => {
     if (!sortLockEnabled) return;
     setLockedY((prev) => ({
       ...prev,
       [name]: {
         yOffset,
         yZoom,
+        vDiv: (total * (ySpan || 1)) / (yZoom * 7.5),
         inverted: prev[name]?.inverted ?? false,
         customName: prev[name]?.customName ?? '',
       },
@@ -1536,7 +1547,7 @@ function App() {
             plotMargin
           );
           const nextOffset = clamp(ch.yOffset + dy, bounds.min, bounds.max);
-          updateLockedY(ch.name, nextOffset, ch.yZoom);
+          updateLockedY(ch.name, nextOffset, ch.yZoom, ch.maxY - ch.minY, prev.length);
           return prev.map((c) =>
             c.id === draggingChannelId ? { ...c, yOffset: nextOffset } : c
           );
@@ -1680,7 +1691,7 @@ function App() {
           prev.map((ch) => {
             if (ch.id !== hovered) return ch;
             const nextZoom = clamp(ch.yZoom * 2, 0.015625, 32);
-            updateLockedY(ch.name, ch.yOffset, nextZoom);
+            updateLockedY(ch.name, ch.yOffset, nextZoom, ch.maxY - ch.minY, prev.length);
             return { ...ch, yZoom: nextZoom };
           })
         );
@@ -1728,7 +1739,7 @@ function App() {
         prev.map((ch) => {
           if (ch.id !== hoveredChannelId) return ch;
           const nextZoom = clamp(ch.yZoom * 0.5, 0.015625, 32);
-          updateLockedY(ch.name, ch.yOffset, nextZoom);
+          updateLockedY(ch.name, ch.yOffset, nextZoom, ch.maxY - ch.minY, prev.length);
           return { ...ch, yZoom: nextZoom };
         })
       );
@@ -1749,11 +1760,14 @@ function App() {
       prev.map((c) => (c.id === id ? { ...c, inverted: nextInverted } : c))
     );
     if (sortLockEnabled) {
+      const ySpan = ch.maxY - ch.minY || 1;
+      const vDiv = (channels.length * ySpan) / (ch.yZoom * 7.5);
       setLockedY((prev) => ({
         ...prev,
         [ch.name]: {
           yOffset: ch.yOffset,
           yZoom: ch.yZoom,
+          vDiv,
           inverted: nextInverted,
           customName: ch.customName,
         },
@@ -1775,11 +1789,14 @@ function App() {
     if (sortLockEnabled) {
       const ch = channels.find((c) => c.id === editingChannelId);
       if (ch) {
+        const ySpan = ch.maxY - ch.minY || 1;
+        const vDiv = (channels.length * ySpan) / (ch.yZoom * 7.5);
         setLockedY((prev) => ({
           ...prev,
           [ch.name]: {
             yOffset: ch.yOffset,
             yZoom: ch.yZoom,
+            vDiv,
             inverted: ch.inverted ?? false,
             customName: trimmed,
           },
@@ -1847,7 +1864,11 @@ function App() {
           setLockedOrder(reset.map((ch) => ch.name));
           setLockedY(
             Object.fromEntries(
-              reset.map((ch) => [ch.name, { yOffset: 0, yZoom: ch.yZoom, inverted: ch.inverted ?? false, customName: ch.customName }])
+              reset.map((ch) => {
+                const ySpan = ch.maxY - ch.minY || 1;
+                const vDiv = (reset.length * ySpan) / (ch.yZoom * 7.5);
+                return [ch.name, { yOffset: 0, yZoom: ch.yZoom, vDiv, inverted: ch.inverted ?? false, customName: ch.customName }];
+              })
             )
           );
         }
