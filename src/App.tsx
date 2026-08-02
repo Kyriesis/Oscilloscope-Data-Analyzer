@@ -519,26 +519,6 @@ function App() {
     }
   }, [sortLockEnabled, lockedOrder, lockedY]);
 
-  // 退出单通道模式（Zoom Y / 横向 / 纵横）时，把各通道 yOffset 归零，
-  // 避免回到多通道模式后左侧 0 位标签被 clamp 到 band 内而波形 0 位仍偏出 band 的错位。
-  const singleChannelMode = zoomYMode || horizontalCursorMode || crossCursorMode;
-  const prevSingleChannelModeRef = useRef(singleChannelMode);
-  useEffect(() => {
-    const prev = prevSingleChannelModeRef.current;
-    const next = singleChannelMode;
-    prevSingleChannelModeRef.current = next;
-    if (prev && !next) {
-      setChannels((prevChannels) => prevChannels.map((ch) => ({ ...ch, yOffset: 0 })));
-      if (sortLockEnabled) {
-        setLockedY((prevLockedY) =>
-          Object.fromEntries(
-            Object.entries(prevLockedY).map(([name, saved]) => [name, { ...saved, yOffset: 0 }])
-          )
-        );
-      }
-    }
-  }, [singleChannelMode, sortLockEnabled]);
-
   const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
@@ -2968,14 +2948,16 @@ function drawChannelLabels(
   ctx.globalAlpha = channel.visible ? 1 : 0.35;
 
   // 单通道模式（Zoom Y / 横向 / 纵横）只显示已选中的通道；
-  // 其余情况（初始、重置、Zoom X、纵向光标等）显示所有可见通道
+  // 其余情况（初始、重置、Zoom X、纵向光标等）显示所有可见通道。
+  // 无论哪种模式，左侧 0 位标签都跟随实际波形 0 位，不限制在通道 band 内，
+  // 允许用户自由调整位置并保留重叠状态。
   if (channel.visible && (!singleChannelMode || channel.id === labelChannelId)) {
     const zeroY = bandCenterY + yMid * yScale * flip;
     const hasCustomName = channel.customName.trim().length > 0;
     const chNameYOffset = hasCustomName ? 20 : 12;
-    // 单通道模式下标签占整个图形区；多通道模式下每个通道占自己的带状区域
-    const labelTop = singleChannelMode ? margin.top : bandTop;
-    const labelBottom = singleChannelMode ? margin.top + plotHeight : bandTop + bandHeight;
+    // 标签和 0 位标记始终可跟随波形在全图范围内移动，仅避免与上下坐标轴数值重叠
+    const labelTop = margin.top;
+    const labelBottom = margin.top + plotHeight;
     // 保持 CH 标签与 0 位标签均有 2px 间隙
     const minZeroY = labelTop + 26 + chNameYOffset;
     const maxZeroY = labelBottom - 26;
