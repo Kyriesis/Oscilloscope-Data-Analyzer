@@ -273,13 +273,13 @@ def main():
         for r in failed:
             print(f"  {r['file']}: {r['error']}")
 
-    # 输出结果
+    # 输出结果（使用 UTF-8-BOM，让 Excel 双击打开时中文/英文表头都不乱码）
     if args.output:
-        with open(args.output, "w", newline="", encoding="utf-8") as f:
+        with open(args.output, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f)
             writer.writerow([
-                "文件名", "Pawl SW 通道", "Cin Motor 通道", "Pawl SW 下降沿时间(s)",
-                "Cin Motor 堵转开始时间(s)", "ΔT(ms)", "错误信息"
+                "File", "Pawl SW Channel", "Cin Motor Channel", "Pawl SW Fall Time(s)",
+                "Cin Motor Stall Start Time(s)", "Delta T(ms)", "Error"
             ])
             for r in results:
                 writer.writerow([
