@@ -137,6 +137,7 @@ def detect_stall_start(
 def analyze_file(
     path: str,
     pawl_sw_channel: int = 2,
+    home_sw_channel: int = 4,
     cin_motor_channel: int = 1,
     threshold: float = 1.5,
     threshold_ratio: float = 0.2,
@@ -144,32 +145,47 @@ def analyze_file(
     """分析单个 CSV 文件。"""
     t0, t_inc, channel_names, data = parse_rigol_csv(path)
 
-    ch_idx = pawl_sw_channel - 1
+    pawl_idx = pawl_sw_channel - 1
+    home_idx = home_sw_channel - 1
     motor_idx = cin_motor_channel - 1
 
     # 提取通道数据
-    ch2 = [row[ch_idx] for row in data]
-    ch1 = [row[motor_idx] for row in data]
+    ch_pawl = [row[pawl_idx] for row in data]
+    ch_home = [row[home_idx] for row in data]
+    ch_motor = [row[motor_idx] for row in data]
 
-    fall_index = detect_falling_edge(ch2, threshold=threshold)
+    # 1. Pawl SW 最后一个下降沿（业务假设：该下降沿触发后续堵转/运动事件）
+    pawl_fall_index = detect_falling_edge(ch_pawl, threshold=threshold)
+    pawl_fall_time = t0 + pawl_fall_index * t_inc
+
+    # 2. Home SW 下降沿（取最后一个，与 Pawl SW 事件配对）
+    home_fall_index = detect_falling_edge(ch_home, threshold=threshold)
+    home_fall_time = t0 + home_fall_index * t_inc
+
+    # 3. Pawl SW 最后一个下降沿到 Home SW 下降沿的时间差
+    pawl_to_home_delta_ms = (pawl_fall_time - home_fall_time) * 1000.0
+
+    # 4. Cin Motor 堵转开始（基于 Pawl SW 最后一个下降沿）
     stall_index = detect_stall_start(
-        ch1, fall_index, t_inc, threshold_ratio=threshold_ratio
+        ch_motor, pawl_fall_index, t_inc, threshold_ratio=threshold_ratio
     )
-
-    fall_time = t0 + fall_index * t_inc
     stall_time = t0 + stall_index * t_inc
-    delta_t_ms = (stall_time - fall_time) * 1000.0
+    pawl_to_stall_delta_ms = (stall_time - pawl_fall_time) * 1000.0
 
     return {
         "file": Path(path).name,
         "channel_names": ",".join(channel_names),
         "pawl_sw_channel": pawl_sw_channel,
+        "home_sw_channel": home_sw_channel,
         "cin_motor_channel": cin_motor_channel,
-        "fall_index": fall_index,
-        "fall_time": fall_time,
+        "pawl_fall_index": pawl_fall_index,
+        "pawl_fall_time": pawl_fall_time,
+        "home_fall_index": home_fall_index,
+        "home_fall_time": home_fall_time,
+        "pawl_to_home_delta_ms": pawl_to_home_delta_ms,
         "stall_index": stall_index,
         "stall_time": stall_time,
-        "delta_t_ms": delta_t_ms,
+        "pawl_to_stall_delta_ms": pawl_to_stall_delta_ms,
         "error": None,
     }
 
@@ -183,9 +199,11 @@ def analyze_file_safe(args: tuple) -> dict:
         return {
             "file": Path(path).name,
             "error": str(e),
-            "fall_time": None,
+            "pawl_fall_time": None,
+            "home_fall_time": None,
+            "pawl_to_home_delta_ms": None,
             "stall_time": None,
-            "delta_t_ms": None,
+            "pawl_to_stall_delta_ms": None,
         }
 
 
@@ -209,6 +227,9 @@ def main():
     parser.add_argument("input", help="输入 CSV 文件或包含 CSV 文件的文件夹")
     parser.add_argument(
         "--pawl-sw", type=int, default=2, help="Pawl SW 所在通道编号（1-4），默认 2"
+    )
+    parser.add_argument(
+        "--home-sw", type=int, default=4, help="Home SW 所在通道编号（1-4），默认 4"
     )
     parser.add_argument(
         "--cin-motor", type=int, default=1, help="Cin Motor 所在通道编号（1-4），默认 1"
@@ -238,6 +259,7 @@ def main():
 
     kwargs = {
         "pawl_sw_channel": args.pawl_sw,
+        "home_sw_channel": args.home_sw,
         "cin_motor_channel": args.cin_motor,
         "threshold": args.threshold,
         "threshold_ratio": args.threshold_ratio,
@@ -250,9 +272,11 @@ def main():
         result = analyze_file(files[0], **kwargs)
         print(f"File: {result['file']}")
         print(f"Channels: {result['channel_names'].split(',')}")
-        print(f"Pawl SW falling edge time: {result['fall_time']:.6f} s")
+        print(f"Pawl SW falling edge time: {result['pawl_fall_time']:.6f} s")
+        print(f"Home SW falling edge time: {result['home_fall_time']:.6f} s")
+        print(f"Pawl SW -> Home SW delta: {result['pawl_to_home_delta_ms']:.3f} ms")
         print(f"Cin Motor stall start time: {result['stall_time']:.6f} s")
-        print(f"ΔT: {result['delta_t_ms']:.3f} ms")
+        print(f"Pawl SW -> Cin Motor stall delta: {result['pawl_to_stall_delta_ms']:.3f} ms")
         return
 
     # 批量模式
@@ -282,17 +306,21 @@ def main():
         with open(args.output, "w", newline="", encoding="utf-8-sig") as f:
             writer = csv.writer(f)
             writer.writerow([
-                "File", "Pawl SW Channel", "Cin Motor Channel", "Pawl SW Fall Time(s)",
-                "Cin Motor Stall Start Time(s)", "Delta T(ms)", "Error"
+                "File", "Pawl SW Channel", "Home SW Channel", "Cin Motor Channel",
+                "Home SW Fall Time(s)", "Pawl SW Fall Time(s)", "Pawl->Home Delta(ms)",
+                "Cin Motor Stall Start Time(s)", "Pawl->Stall Delta(ms)", "Error"
             ])
             for r in results:
                 writer.writerow([
                     r["file"],
                     r.get("pawl_sw_channel", ""),
+                    r.get("home_sw_channel", ""),
                     r.get("cin_motor_channel", ""),
-                    f"{r['fall_time']:.6f}" if r["fall_time"] is not None else "",
+                    f"{r['home_fall_time']:.6f}" if r["home_fall_time"] is not None else "",
+                    f"{r['pawl_fall_time']:.6f}" if r["pawl_fall_time"] is not None else "",
+                    f"{r['pawl_to_home_delta_ms']:.3f}" if r["pawl_to_home_delta_ms"] is not None else "",
                     f"{r['stall_time']:.6f}" if r["stall_time"] is not None else "",
-                    f"{r['delta_t_ms']:.3f}" if r["delta_t_ms"] is not None else "",
+                    f"{r['pawl_to_stall_delta_ms']:.3f}" if r["pawl_to_stall_delta_ms"] is not None else "",
                     r["error"] or "",
                 ])
         print(f"\nReport saved: {args.output}")
