@@ -191,13 +191,18 @@ def analyze_file(
     pawl_fall_time = t0 + pawl_fall_index * t_inc
 
     # 2. Home SW 下降沿（取最后一个，与 Pawl SW 事件配对）
-    home_fall_index = detect_falling_edge(ch_home, threshold=threshold, debounce_samples=debounce_samples)
-    home_fall_time = t0 + home_fall_index * t_inc
+    home_fall_index = None
+    home_fall_time = None
+    pawl_to_home_delta_ms = None
+    try:
+        home_fall_index = detect_falling_edge(ch_home, threshold=threshold, debounce_samples=debounce_samples)
+        home_fall_time = t0 + home_fall_index * t_inc
+        pawl_to_home_delta_ms = (pawl_fall_time - home_fall_time) * 1000.0
+    except ValueError:
+        # Home SW 可能一直低电平，只影响 Pawl->Home 测量，不影响 Pawl->Stall
+        pass
 
-    # 3. Pawl SW 最后一个下降沿到 Home SW 下降沿的时间差
-    pawl_to_home_delta_ms = (pawl_fall_time - home_fall_time) * 1000.0
-
-    # 4. Cin Motor 堵转开始（基于 Pawl SW 最后一个下降沿，自动适应电流方向）
+    # 3. Cin Motor 堵转开始（基于 Pawl SW 最后一个下降沿，自动适应电流方向）
     stall_index = detect_stall_start(
         ch_motor, pawl_fall_index, t_inc, threshold_ratio=threshold_ratio
     )
@@ -312,8 +317,12 @@ def main():
         print(f"File: {result['file']}")
         print(f"Channels: {result['channel_names'].split(',')}")
         print(f"Pawl SW falling edge time: {result['pawl_fall_time']:.6f} s")
-        print(f"Home SW falling edge time: {result['home_fall_time']:.6f} s")
-        print(f"Pawl SW -> Home SW delta: {result['pawl_to_home_delta_ms']:.3f} ms")
+        if result['home_fall_time'] is not None:
+            print(f"Home SW falling edge time: {result['home_fall_time']:.6f} s")
+            print(f"Pawl SW -> Home SW delta: {result['pawl_to_home_delta_ms']:.3f} ms")
+        else:
+            print("Home SW falling edge: N/A (signal stays low)")
+            print("Pawl SW -> Home SW delta: N/A")
         print(f"Cin Motor stall start time: {result['stall_time']:.6f} s")
         print(f"Pawl SW -> Cin Motor stall delta: {result['pawl_to_stall_delta_ms']:.3f} ms")
         return
