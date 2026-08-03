@@ -59,16 +59,27 @@ def parse_rigol_csv(path: str) -> tuple[float, float, list[str], list[list[float
     return t0, t_inc, channel_names, data
 
 
-def detect_falling_edge(values: list[float], threshold: float = 1.5) -> int:
+def detect_falling_edge(
+    values: list[float], threshold: float = 1.5, debounce_samples: int = 50
+) -> int:
     """检测数字通道从高到低的下降沿，返回最后一个下降沿索引。
 
     业务假设：测试流程保证最后一个 Pawl SW 下降沿才会触发堵转事件，
     因此直接取最后一个下降沿作为目标事件。
+
+    增加消抖：越过阈值后必须连续 debounce_samples 个点都低于阈值，
+    才记为一次有效下降沿，避免噪声回勾造成的误判。
     """
     edges = []
-    for i in range(1, len(values)):
+    i = 1
+    while i < len(values):
         if values[i - 1] > threshold and values[i] <= threshold:
-            edges.append(i)
+            end = min(i + debounce_samples, len(values))
+            if all(values[j] <= threshold for j in range(i, end)):
+                edges.append(i)
+                i = end
+                continue
+        i += 1
     if not edges:
         raise ValueError(f"未找到下降沿（阈值 {threshold}）")
     return edges[-1]
@@ -97,7 +108,12 @@ def detect_stall_start(
     smooth_window_ms: float = 2.0,
     threshold_ratio: float = 0.2,
 ) -> int:
-    """检测 Cin Motor 从自由电流进入堵转电流的过渡点。"""
+    """检测 Cin Motor 从自由电流进入堵转电流的过渡点。
+
+    自动适应电流方向：电流钳方向可能随机，导致堵转电流可正可负。
+    因此同时搜索正向最大偏差和负向最大偏差，取偏差更大的方向作为
+    堵转方向，再在该方向上找首次越过 20% 阈值的位置。
+    """
     baseline_samples = max(1, int(round(baseline_window_ms / 1000.0 / t_inc)))
     search_samples = max(1, int(round(search_window_ms / 1000.0 / t_inc)))
     half_smooth = max(1, int(round(smooth_window_ms / 1000.0 / t_inc / 2)))
@@ -110,28 +126,43 @@ def detect_stall_start(
         baseline += values[i]
     baseline /= count
 
-    # 堵转电流最小值
+    # 搜索窗口内同时找最大、最小值及位置
     end = min(len(values), fall_index + search_samples)
     stall_min = float("inf")
+    stall_max = float("-inf")
     stall_min_idx = fall_index
+    stall_max_idx = fall_index
     for i in range(fall_index, end):
         s = moving_average(values, i, half_smooth)
         if s < stall_min:
             stall_min = s
             stall_min_idx = i
+        if s > stall_max:
+            stall_max = s
+            stall_max_idx = i
 
-    if stall_min == float("inf"):
-        raise ValueError("未找到堵转电流最小值")
+    if stall_min == float("inf") or stall_max == float("-inf"):
+        raise ValueError("未找到堵转电流极值")
 
-    threshold = baseline + threshold_ratio * (stall_min - baseline)
+    pos_dev = stall_max - baseline
+    neg_dev = baseline - stall_min
 
-    # 首次低于阈值
-    for i in range(fall_index, stall_min_idx + 1):
-        s = moving_average(values, i, half_smooth)
-        if s <= threshold:
-            return i
-
-    return stall_min_idx
+    if pos_dev >= neg_dev:
+        # 堵转电流为正向：从基线向上偏离
+        threshold = baseline + threshold_ratio * pos_dev
+        for i in range(fall_index, stall_max_idx + 1):
+            s = moving_average(values, i, half_smooth)
+            if s >= threshold:
+                return i
+        return stall_max_idx
+    else:
+        # 堵转电流为负向：从基线向下偏离（原始逻辑）
+        threshold = baseline - threshold_ratio * neg_dev
+        for i in range(fall_index, stall_min_idx + 1):
+            s = moving_average(values, i, half_smooth)
+            if s <= threshold:
+                return i
+        return stall_min_idx
 
 
 def analyze_file(
@@ -141,6 +172,7 @@ def analyze_file(
     cin_motor_channel: int = 1,
     threshold: float = 1.5,
     threshold_ratio: float = 0.2,
+    debounce_samples: int = 50,
 ) -> dict:
     """分析单个 CSV 文件。"""
     t0, t_inc, channel_names, data = parse_rigol_csv(path)
@@ -155,17 +187,17 @@ def analyze_file(
     ch_motor = [row[motor_idx] for row in data]
 
     # 1. Pawl SW 最后一个下降沿（业务假设：该下降沿触发后续堵转/运动事件）
-    pawl_fall_index = detect_falling_edge(ch_pawl, threshold=threshold)
+    pawl_fall_index = detect_falling_edge(ch_pawl, threshold=threshold, debounce_samples=debounce_samples)
     pawl_fall_time = t0 + pawl_fall_index * t_inc
 
     # 2. Home SW 下降沿（取最后一个，与 Pawl SW 事件配对）
-    home_fall_index = detect_falling_edge(ch_home, threshold=threshold)
+    home_fall_index = detect_falling_edge(ch_home, threshold=threshold, debounce_samples=debounce_samples)
     home_fall_time = t0 + home_fall_index * t_inc
 
     # 3. Pawl SW 最后一个下降沿到 Home SW 下降沿的时间差
     pawl_to_home_delta_ms = (pawl_fall_time - home_fall_time) * 1000.0
 
-    # 4. Cin Motor 堵转开始（基于 Pawl SW 最后一个下降沿）
+    # 4. Cin Motor 堵转开始（基于 Pawl SW 最后一个下降沿，自动适应电流方向）
     stall_index = detect_stall_start(
         ch_motor, pawl_fall_index, t_inc, threshold_ratio=threshold_ratio
     )
@@ -244,6 +276,12 @@ def main():
         help="堵转电流动态阈值比例（0-1），默认 0.2",
     )
     parser.add_argument(
+        "--debounce",
+        type=int,
+        default=50,
+        help="下降沿消抖采样点数，默认 50（对应 0.5 ms，tInc=1e-5 s 时）",
+    )
+    parser.add_argument(
         "--output",
         type=str,
         default=None,
@@ -263,6 +301,7 @@ def main():
         "cin_motor_channel": args.cin_motor,
         "threshold": args.threshold,
         "threshold_ratio": args.threshold_ratio,
+        "debounce_samples": args.debounce,
     }
 
     files = find_csv_files(args.input)

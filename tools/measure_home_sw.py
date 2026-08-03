@@ -62,29 +62,49 @@ def detect_pulses(
     t_inc: float,
     threshold: float = 1.5,
     min_width_ms: float = 0.05,
+    debounce_samples: int = 50,
 ) -> list[dict]:
-    """检测所有高电平脉冲，返回 [{start_index, end_index, start_time, end_time, width_ms}]。"""
+    """检测所有高电平脉冲，返回 [{start_index, end_index, start_time, end_time, width_ms}]。
+
+    增加消抖：上升沿和下降沿都需要连续 debounce_samples 个点保持新状态，
+    才确认有效跳变，避免噪声造成的虚假脉冲边缘。
+    """
     min_samples = max(1, int(round(min_width_ms / 1000.0 / t_inc)))
     pulses = []
     in_pulse = False
     start_idx = 0
+    i = 0
+    n = len(values)
 
-    for i in range(len(values)):
-        if values[i] > threshold and not in_pulse:
-            in_pulse = True
-            start_idx = i
-        elif values[i] <= threshold and in_pulse:
-            in_pulse = False
-            width_samples = i - start_idx
-            if width_samples >= min_samples:
-                end_idx = i - 1
-                pulses.append({
-                    "start_index": start_idx,
-                    "end_index": end_idx,
-                    "start_time": t0 + start_idx * t_inc,
-                    "end_time": t0 + end_idx * t_inc,
-                    "width_ms": width_samples * t_inc * 1000.0,
-                })
+    while i < n:
+        if not in_pulse:
+            # 潜在上升沿：当前点高于阈值，且为数据起点或前一点低于阈值
+            if values[i] > threshold and (i == 0 or values[i - 1] <= threshold):
+                end_check = min(i + debounce_samples, n)
+                if all(values[j] > threshold for j in range(i, end_check)):
+                    in_pulse = True
+                    start_idx = i
+                    i = end_check
+                    continue
+        else:
+            # 潜在下降沿：当前点低于阈值
+            if values[i] <= threshold:
+                end_check = min(i + debounce_samples, n)
+                if all(values[j] <= threshold for j in range(i, end_check)):
+                    in_pulse = False
+                    end_idx = i - 1
+                    width_samples = end_idx - start_idx + 1
+                    if width_samples >= min_samples:
+                        pulses.append({
+                            "start_index": start_idx,
+                            "end_index": end_idx,
+                            "start_time": t0 + start_idx * t_inc,
+                            "end_time": t0 + end_idx * t_inc,
+                            "width_ms": width_samples * t_inc * 1000.0,
+                        })
+                    i = end_check
+                    continue
+        i += 1
 
     if in_pulse:
         end_idx = len(values) - 1
@@ -109,6 +129,7 @@ def analyze_file(
     home_sw_channel: int = 4,
     threshold: float = 1.5,
     min_width_ms: float = 0.05,
+    debounce_samples: int = 50,
 ) -> dict:
     """分析单个 CSV 文件，测量 Home SW 最后两个脉冲宽度。"""
     t0, t_inc, channel_names, data = parse_rigol_csv(path)
@@ -116,7 +137,9 @@ def analyze_file(
     home_idx = home_sw_channel - 1
     ch_home = [row[home_idx] for row in data]
 
-    pulses = detect_pulses(ch_home, t0, t_inc, threshold=threshold, min_width_ms=min_width_ms)
+    pulses = detect_pulses(
+        ch_home, t0, t_inc, threshold=threshold, min_width_ms=min_width_ms, debounce_samples=debounce_samples
+    )
 
     # 最后两个脉冲：倒数第二、倒数第一
     pulse_1 = pulses[-2] if len(pulses) >= 2 else None
@@ -186,6 +209,12 @@ def main():
         "--min-width-ms", type=float, default=0.05, help="Minimum pulse width (ms), default 0.05"
     )
     parser.add_argument(
+        "--debounce",
+        type=int,
+        default=50,
+        help="Pulse edge debounce samples, default 50 (0.5 ms with tInc=1e-5 s)",
+    )
+    parser.add_argument(
         "--output", type=str, default=None, help="Batch mode output CSV report path"
     )
     parser.add_argument(
@@ -197,6 +226,7 @@ def main():
         "home_sw_channel": args.home_sw,
         "threshold": args.threshold,
         "min_width_ms": args.min_width_ms,
+        "debounce_samples": args.debounce,
     }
 
     files = find_csv_files(args.input)
