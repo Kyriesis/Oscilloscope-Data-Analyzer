@@ -1273,8 +1273,8 @@ function App() {
     ctx.clip();
 
     if (cursorMode) {
-      drawCursorLine(ctx, rCursorA, '#ff2a6d', plotMargin, plotHeight, minX, scaleX, panX);
-      drawCursorLine(ctx, rCursorB, '#ff2a6d', plotMargin, plotHeight, minX, scaleX, panX);
+      drawCursorLine(ctx, rCursorA, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
+      drawCursorLine(ctx, rCursorB, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
       drawMeasureLine(ctx, rCursorA, rCursorB, rMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, rCursorA !== null && rCursorB !== null ? formatDeltaT(rCursorB - rCursorA) : undefined);
     }
 
@@ -1283,8 +1283,8 @@ function App() {
     const dataYC = horizontalCursorMode ? getActiveChannelYFromRatio(rCursorC) : null;
     const dataYD = horizontalCursorMode ? getActiveChannelYFromRatio(rCursorD) : null;
     if (horizontalCursorMode) {
-      drawHorizontalCursorLine(ctx, rCursorC, '#ff2a6d', plotMargin, plotWidth, plotHeight, screenYC);
-      drawHorizontalCursorLine(ctx, rCursorD, '#ff2a6d', plotMargin, plotWidth, plotHeight, screenYD);
+      drawHorizontalCursorLine(ctx, rCursorC, '#ffffff', plotMargin, plotWidth, plotHeight, screenYC);
+      drawHorizontalCursorLine(ctx, rCursorD, '#ffffff', plotMargin, plotWidth, plotHeight, screenYD);
       drawHorizontalMeasureAnnotation(ctx, dataYC, dataYD, rHorizontalMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYC, screenYD);
     }
 
@@ -1293,16 +1293,16 @@ function App() {
     const dataYF = crossCursorMode ? getActiveChannelYFromRatio(rCursorF) : null;
     const dataYH = crossCursorMode ? getActiveChannelYFromRatio(rCursorH) : null;
     if (crossCursorMode) {
-      drawCursorLine(ctx, rCursorE, '#ff2a6d', plotMargin, plotHeight, minX, scaleX, panX);
-      drawCursorLine(ctx, rCursorG, '#ff2a6d', plotMargin, plotHeight, minX, scaleX, panX);
-      drawHorizontalCursorLine(ctx, rCursorF, '#ff2a6d', plotMargin, plotWidth, plotHeight, screenYF);
-      drawHorizontalCursorLine(ctx, rCursorH, '#ff2a6d', plotMargin, plotWidth, plotHeight, screenYH);
+      drawCursorLine(ctx, rCursorE, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
+      drawCursorLine(ctx, rCursorG, '#ffffff', plotMargin, plotHeight, minX, scaleX, panX);
+      drawHorizontalCursorLine(ctx, rCursorF, '#ffffff', plotMargin, plotWidth, plotHeight, screenYF);
+      drawHorizontalCursorLine(ctx, rCursorH, '#ffffff', plotMargin, plotWidth, plotHeight, screenYH);
       drawMeasureLine(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX, rCursorE !== null && rCursorG !== null ? formatDeltaX(rCursorG - rCursorE) : undefined);
       drawCrossMeasureXLabel(ctx, rCursorE, rCursorG, rCrossMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
       drawHorizontalMeasureAnnotation(ctx, dataYF, dataYH, rCrossMeasureLabelX, activeChannel, plotMargin, plotWidth, plotHeight, screenYF, screenYH);
 
       // 在纵横十字交点处绘制实心圆点，便于识别两个坐标交点
-      ctx.fillStyle = '#ff2a6d';
+      ctx.fillStyle = '#ffffff';
       if (rCursorE !== null && screenYF !== null) {
         const screenXE = plotMargin.left + (rCursorE - minX) * scaleX + panX;
         ctx.beginPath();
@@ -1320,21 +1320,21 @@ function App() {
     ctx.restore();
 
     if (cursorMode) {
-      drawCursorLabel(ctx, rCursorA, '#ff2a6d', 'A', plotMargin, plotWidth, minX, scaleX, panX);
-      drawCursorLabel(ctx, rCursorB, '#ff2a6d', 'B', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorA, '#ffffff', 'A', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorB, '#ffffff', 'B', plotMargin, plotWidth, minX, scaleX, panX);
       drawMeasureLabel(ctx, rCursorA, rCursorB, rMeasureLabelY, plotMargin, plotWidth, plotHeight, minX, scaleX, panX);
     }
 
     if (horizontalCursorMode) {
-      drawHorizontalCursorLabel(ctx, rCursorC, '#ff2a6d', 'C', plotMargin, plotWidth, plotHeight, screenYC);
-      drawHorizontalCursorLabel(ctx, rCursorD, '#ff2a6d', 'D', plotMargin, plotWidth, plotHeight, screenYD);
+      drawHorizontalCursorLabel(ctx, rCursorC, '#ffffff', 'C', plotMargin, plotWidth, plotHeight, screenYC);
+      drawHorizontalCursorLabel(ctx, rCursorD, '#ffffff', 'D', plotMargin, plotWidth, plotHeight, screenYD);
     }
 
     if (crossCursorMode) {
-      drawCursorLabel(ctx, rCursorE, '#ff2a6d', 'E', plotMargin, plotWidth, minX, scaleX, panX);
-      drawCursorLabel(ctx, rCursorG, '#ff2a6d', 'G', plotMargin, plotWidth, minX, scaleX, panX);
-      drawHorizontalCursorLabel(ctx, rCursorF, '#ff2a6d', 'F', plotMargin, plotWidth, plotHeight, screenYF);
-      drawHorizontalCursorLabel(ctx, rCursorH, '#ff2a6d', 'H', plotMargin, plotWidth, plotHeight, screenYH);
+      drawCursorLabel(ctx, rCursorE, '#ffffff', 'E', plotMargin, plotWidth, minX, scaleX, panX);
+      drawCursorLabel(ctx, rCursorG, '#ffffff', 'G', plotMargin, plotWidth, minX, scaleX, panX);
+      drawHorizontalCursorLabel(ctx, rCursorF, '#ffffff', 'F', plotMargin, plotWidth, plotHeight, screenYF);
+      drawHorizontalCursorLabel(ctx, rCursorH, '#ffffff', 'H', plotMargin, plotWidth, plotHeight, screenYH);
     }
   }
 
